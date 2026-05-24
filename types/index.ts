@@ -1,9 +1,13 @@
+export type { Role, SessionUser } from "@/lib/session";
+
 export type InventoryItem = {
   id: string;
   name: string;
-  unit: string;
+  category: string;
   quantity: number;
-  reorderThreshold: number;
+  unit: string;
+  threshold: number;
+  expiry: string | null;
 };
 
 export type MenuItem = {
