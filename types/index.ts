@@ -1,9 +1,10 @@
 export type InventoryItem = {
-  id: string;
-  name: string;
-  unit: string;
+  item_id: number;
+  item_name: string;
+  category: string;
   quantity: number;
-  reorderThreshold: number;
+  minimum_threshold: number;
+  expiry_date: string | null;
 };
 
 export type MenuItem = {

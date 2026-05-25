@@ -1,6 +1,45 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
+import { saveAuth } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
+
+type LoginResponse = {
+  access_token?: string;
+  token?: string;
+  user: AuthUser;
+};
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await apiFetch<LoginResponse>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      const token = res.access_token ?? res.token;
+      if (!token) throw new Error("No token in response");
+      saveAuth(token, res.user);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-800/60 p-8 shadow-xl">
       <div className="mb-8">
@@ -10,7 +49,13 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <form className="flex flex-col gap-4">
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium text-slate-300">
             Email
@@ -22,6 +67,8 @@ export default function LoginPage() {
             placeholder="you@restaurant.com"
             autoComplete="email"
             required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
           />
         </div>
@@ -45,6 +92,8 @@ export default function LoginPage() {
             placeholder="••••••••"
             autoComplete="current-password"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
           />
         </div>
@@ -60,9 +109,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="mt-2 w-full rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+          disabled={loading}
+          className="mt-2 w-full rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Sign in
+          {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
@@ -74,7 +124,8 @@ export default function LoginPage() {
 
       <button
         type="button"
-        className="w-full rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+        disabled
+        className="w-full rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-2.5 text-sm font-medium text-slate-500 cursor-not-allowed"
       >
         Continue with Google
       </button>
