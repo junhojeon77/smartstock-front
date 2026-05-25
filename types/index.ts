@@ -1,13 +1,10 @@
-export type { Role, SessionUser } from "@/lib/session";
-
 export type InventoryItem = {
-  id: string;
-  name: string;
+  item_id: number;
+  item_name: string;
   category: string;
   quantity: number;
-  unit: string;
-  threshold: number;
-  expiry: string | null;
+  minimum_threshold: number;
+  expiry_date: string | null;
 };
 
 export type MenuItem = {

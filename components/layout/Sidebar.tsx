@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { logoutAction } from "@/lib/auth-actions";
-import type { SessionUser } from "@/lib/session";
+import { clearAuth, getUser } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
 
 type NavItem = {
   label: string;
@@ -53,18 +54,6 @@ const nav: NavItem[] = [
     ),
   },
   {
-    label: "Users",
-    href: "/users",
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-      </svg>
-    ),
-  },
-  {
     label: "Settings",
     href: "/settings",
     icon: (
@@ -85,11 +74,23 @@ const nav: NavItem[] = [
   },
 ];
 
-type Props = { user: SessionUser };
-
-export function Sidebar({ user }: Props) {
+export function Sidebar() {
   const pathname = usePathname();
-  const items = nav.filter((item) => !item.adminOnly || user.role === "Admin");
+  const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
+
+  function handleSignOut() {
+    clearAuth();
+    router.push("/login");
+  }
+
+  const items = nav.filter(
+    (item) => !item.adminOnly || user?.role === "Admin",
+  );
 
   return (
     <aside className="w-60 shrink-0 border-r border-slate-800 bg-slate-950/80 px-4 py-6 flex flex-col">
@@ -122,27 +123,28 @@ export function Sidebar({ user }: Props) {
         })}
       </nav>
 
-      <div className="mt-4 border-t border-slate-800 pt-4">
-        <div className="flex items-center gap-3 px-2 pb-3">
-          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-sm font-semibold text-slate-900">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-slate-100">
-              {user.name}
+      {user && (
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-sm font-semibold text-slate-900">
+              {user.name.charAt(0).toUpperCase()}
             </div>
-            <div className="text-xs text-slate-400">{user.role}</div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-slate-100">
+                {user.name}
+              </div>
+              <div className="text-xs text-slate-400">{user.role}</div>
+            </div>
           </div>
-        </div>
-        <form action={logoutAction}>
           <button
-            type="submit"
+            type="button"
+            onClick={handleSignOut}
             className="w-full rounded-lg border border-slate-800 px-3 py-2 text-sm text-slate-300 transition hover:border-slate-700 hover:bg-slate-800/60 hover:text-slate-100"
           >
             Sign out
           </button>
-        </form>
-      </div>
+        </div>
+      )}
     </aside>
   );
 }
