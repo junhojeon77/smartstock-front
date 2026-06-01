@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { apiFetch } from "@/lib/api";
-import { getUser } from "@/lib/auth";
+import { getUser, normalizeRole } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import type { InventoryItem } from "@/types/index";
 
-// ─── Icons (unchanged from original) ────────────────────────────────────────
+// ─── Icons ───────────────────────────────────────────────────────────────────
 
 function EditIcon() {
   return (
@@ -43,7 +43,7 @@ function PlusIcon() {
   );
 }
 
-// ─── Form state ──────────────────────────────────────────────────────────────
+// ─── Form state ───────────────────────────────────────────────────────────────
 
 type FormValues = {
   item_id: string;
@@ -63,10 +63,8 @@ const EMPTY_FORM: FormValues = {
   expiry_date: "",
 };
 
-// ─── Shared Tailwind class for form inputs ───────────────────────────────────
-
 const inputCls =
-  "w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20";
+  "w-full rounded-xl border border-slate-700/60 bg-slate-800/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150 disabled:opacity-50";
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -106,9 +104,9 @@ export default function InventoryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const role = currentUser?.role ?? "";
-  const canAdd = role === "Admin" || role === "Manager";
-  const canEdit = role === "Admin" || role === "Manager";
+  const role     = normalizeRole(currentUser?.role);
+  const canAdd    = role === "Admin" || role === "Manager";
+  const canEdit   = role === "Admin" || role === "Manager";
   const canDelete = role === "Admin";
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -134,8 +132,7 @@ export default function InventoryPage() {
       item_name: item.item_name,
       category: item.category,
       quantity: String(item.quantity),
-      minimum_threshold: String(item.minimum_threshold),
-      // Handles both ISO datetime strings ("2026-05-25T00:00:00+00:00") and plain date strings ("2026-05-25")
+      minimum_threshold: item.minimum_threshold != null ? String(item.minimum_threshold) : "0",
       expiry_date: item.expiry_date ? item.expiry_date.slice(0, 10) : "",
     });
     setFormError(null);
@@ -155,7 +152,7 @@ export default function InventoryPage() {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   }
 
-  // ── Submit (add or edit) ───────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -175,7 +172,6 @@ export default function InventoryPage() {
           }),
         });
       } else {
-        // Do not include item_id in the $set payload — it is the lookup key
         await apiFetch<{ message: string }>(`/api/inventory/${editingId}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -213,9 +209,8 @@ export default function InventoryPage() {
 
   // ── Expiry display ─────────────────────────────────────────────────────────
 
-  function formatExpiry(val: string | null): string {
-    if (!val) return "N/A";
-    // Slice to YYYY-MM-DD regardless of whether backend sent an ISO datetime or a plain date string
+  function formatExpiry(val: string | null | undefined): string {
+    if (!val) return "—";
     return val.slice(0, 10);
   }
 
@@ -225,40 +220,43 @@ export default function InventoryPage() {
     <>
       <Topbar title="Inventory Overview" />
 
-      <div className="flex-1 px-8 pb-8">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Page-level error banner */}
         {pageError && (
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.08] px-4 py-3 text-sm text-red-400">
             <span>{pageError}</span>
             <button
               onClick={() => setPageError(null)}
-              className="ml-4 font-medium text-red-400 hover:text-red-300"
+              className="ml-4 rounded p-0.5 hover:text-red-300 transition-colors"
+              aria-label="Dismiss"
             >
-              ✕
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
             </button>
           </div>
         )}
 
-        {/* Search + Add button */}
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="relative flex-1 max-w-md">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+        {/* ── Search + Add (responsive) ── */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-5">
+          <div className="relative flex-1">
+            <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
               <SearchIcon />
             </div>
             <input
               type="search"
-              placeholder="Search by name or category..."
+              placeholder="Search by name or category…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/60 pl-10 pr-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className="w-full rounded-xl border border-slate-700/60 bg-slate-900/50 pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150"
             />
           </div>
 
           {canAdd && (
             <button
               onClick={openAdd}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-cyan-400"
+              className="inline-flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400 active:scale-[0.98] transition-all duration-150 shadow-md shadow-cyan-500/20"
             >
               <PlusIcon />
               Add Item
@@ -266,15 +264,31 @@ export default function InventoryPage() {
           )}
         </div>
 
-        {/* Add / Edit form panel */}
+        {/* ── Add / Edit form panel ── */}
         {formMode !== "hidden" && (
-          <div className="mb-6 rounded-xl border border-slate-700 bg-slate-800/60 p-6">
-            <h2 className="mb-4 text-sm font-semibold text-slate-100">
-              {formMode === "add" ? "Add New Item" : "Edit Item"}
-            </h2>
+          <div className="mb-5 rounded-2xl border border-slate-700/60 bg-slate-900/50 backdrop-blur-sm p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold text-slate-100">
+                {formMode === "add" ? "Add New Item" : "Edit Item"}
+              </h2>
+              <button
+                type="button"
+                onClick={cancelForm}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
+                aria-label="Close form"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
             {formError && (
-              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/[0.08] px-4 py-3 text-sm text-red-400">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 shrink-0 mt-0.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
                 {formError}
               </div>
             )}
@@ -282,8 +296,8 @@ export default function InventoryPage() {
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Item ID
                   </label>
                   <input
@@ -296,13 +310,13 @@ export default function InventoryPage() {
                     placeholder="e.g. 103"
                     className={
                       inputCls +
-                      (formMode === "edit" ? " cursor-not-allowed opacity-50" : "")
+                      (formMode === "edit" ? " cursor-not-allowed opacity-40" : "")
                     }
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Item Name
                   </label>
                   <input
@@ -316,8 +330,8 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Category
                   </label>
                   <input
@@ -331,8 +345,8 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Quantity
                   </label>
                   <input
@@ -348,8 +362,8 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Min Threshold
                   </label>
                   <input
@@ -365,10 +379,10 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     Expiry Date{" "}
-                    <span className="font-normal text-slate-500">(optional)</span>
+                    <span className="normal-case font-normal text-slate-600">(optional)</span>
                   </label>
                   <input
                     name="expiry_date"
@@ -381,22 +395,27 @@ export default function InventoryPage() {
 
               </div>
 
-              <div className="mt-5 flex items-center gap-3">
+              <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-lg bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-900 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400 active:scale-[0.98] transition-all duration-150 shadow-sm shadow-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting
-                    ? "Saving…"
-                    : formMode === "add"
-                    ? "Create Item"
-                    : "Save Changes"}
+                  {submitting ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-600 border-t-slate-900" />
+                      Saving…
+                    </>
+                  ) : formMode === "add" ? (
+                    "Create Item"
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="rounded-lg border border-slate-600 px-5 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700"
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-700/60 px-5 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600 transition-all duration-150"
                 >
                   Cancel
                 </button>
@@ -405,62 +424,91 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* Loading */}
+        {/* ── Loading state ── */}
         {loading && (
-          <div className="rounded-xl border border-slate-800 bg-slate-800/60 px-5 py-12 text-center text-sm text-slate-400">
-            Loading inventory…
+          <div className="flex items-center justify-center gap-3 rounded-2xl border border-slate-800/60 bg-slate-900/30 py-16">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-800 border-t-cyan-400" />
+            <span className="text-sm text-slate-500">Loading inventory…</span>
           </div>
         )}
 
-        {/* Table */}
+        {/* ── Table (horizontal scroll on mobile) ── */}
         {!loading && (
-          <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-800/60">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="bg-slate-800/80 text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-5 py-3 text-left font-medium">Item Name</th>
-                  <th className="px-5 py-3 text-left font-medium">Category</th>
-                  <th className="px-5 py-3 text-left font-medium">Quantity</th>
-                  <th className="px-5 py-3 text-left font-medium">Min Threshold</th>
-                  <th className="px-5 py-3 text-left font-medium">Expiry Date</th>
-                  <th className="px-5 py-3 text-right font-medium">Actions</th>
+                <tr className="border-b border-slate-800/60 bg-slate-900/50">
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Item Name
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Category
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Quantity
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Min
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Expiry
+                  </th>
+                  <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
-                      {search ? "No items match your search." : "No inventory items found."}
+                    <td
+                      colSpan={6}
+                      className="px-5 py-14 text-center text-sm text-slate-600"
+                    >
+                      {search
+                        ? `No items match "${search}".`
+                        : "No inventory items found."}
                     </td>
                   </tr>
                 ) : (
                   filtered.map((item) => {
-                    const isLow = item.quantity <= item.minimum_threshold;
+                    const threshold = item.minimum_threshold ?? 0;
+                    const isLow = item.quantity <= threshold;
                     return (
                       <tr
                         key={item.item_id}
-                        className="border-t border-slate-800 hover:bg-slate-800/40"
+                        className="border-t border-slate-800/50 hover:bg-slate-800/25 transition-colors duration-100"
                       >
-                        <td className="px-5 py-4 text-slate-100">{item.item_name}</td>
-                        <td className="px-5 py-4 text-slate-300">{item.category}</td>
+                        <td className="px-5 py-4 font-medium text-slate-100">
+                          {item.item_name}
+                        </td>
+                        <td className="px-5 py-4 text-slate-400">{item.category}</td>
                         <td className="px-5 py-4">
-                          <span className={isLow ? "font-medium text-orange-400" : "text-slate-300"}>
+                          <span
+                            className={
+                              isLow ? "font-semibold text-orange-400" : "text-slate-300"
+                            }
+                          >
                             {item.quantity}
                           </span>
                           {isLow && (
-                            <span className="ml-2 rounded bg-orange-500/15 px-1.5 py-0.5 text-xs text-orange-400">
+                            <span className="ml-2 inline-flex items-center rounded-full bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 text-xs font-medium text-orange-400">
                               Low
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-slate-300">{item.minimum_threshold}</td>
-                        <td className="px-5 py-4 text-slate-300">{formatExpiry(item.expiry_date)}</td>
+                        <td className="px-5 py-4 text-slate-400 tabular-nums">
+                          {item.minimum_threshold ?? "—"}
+                        </td>
+                        <td className="px-5 py-4 text-slate-400 tabular-nums">
+                          {formatExpiry(item.expiry_date)}
+                        </td>
                         <td className="px-5 py-4">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             {canEdit && (
                               <button
                                 onClick={() => openEdit(item)}
-                                className="rounded-md p-1.5 text-cyan-400 hover:bg-slate-700"
+                                className="rounded-lg p-2 text-slate-500 hover:bg-slate-700/60 hover:text-cyan-400 transition-all duration-150"
                                 aria-label={`Edit ${item.item_name}`}
                               >
                                 <EditIcon />
@@ -469,11 +517,14 @@ export default function InventoryPage() {
                             {canDelete && (
                               <button
                                 onClick={() => handleDelete(item)}
-                                className="rounded-md p-1.5 text-red-400 hover:bg-slate-700"
+                                className="rounded-lg p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-all duration-150"
                                 aria-label={`Delete ${item.item_name}`}
                               >
                                 <TrashIcon />
                               </button>
+                            )}
+                            {!canEdit && !canDelete && (
+                              <span className="text-xs text-slate-700 px-2">View only</span>
                             )}
                           </div>
                         </td>
