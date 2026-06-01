@@ -1,13 +1,17 @@
 "use client";
 
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { clearAuth, getUser } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
 
 type NavItem = {
   label: string;
   href: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
+  adminOnly?: boolean;
 };
 
 const nav: NavItem[] = [
@@ -80,21 +84,31 @@ type SidebarProps = {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
+
+  function handleSignOut() {
+    clearAuth();
+    router.push("/login");
+  }
+
+  const items = nav.filter(
+    (item) => !item.adminOnly || user?.role === "Admin",
+  );
 
   return (
     <aside
       className={cn(
-        // Shared base
         "w-64 shrink-0 flex flex-col border-r border-slate-800/60 bg-slate-950",
-        // Mobile: fixed overlay with slide animation
         "fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-out",
-        // Desktop: back to normal flow, always visible
         "lg:relative lg:inset-auto lg:z-auto lg:translate-x-0",
-        // Mobile open/closed
         isOpen ? "translate-x-0" : "-translate-x-full",
       )}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-slate-800/50">
         <Link
           href="/dashboard"
@@ -106,7 +120,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             Smart Stock
           </span>
         </Link>
-        {/* Close button — mobile only */}
+
         <button
           onClick={onClose}
           className="lg:hidden rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
@@ -118,12 +132,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex flex-col gap-0.5 px-3 py-4 flex-1 overflow-y-auto">
-        {nav.map((item) => {
+        {items.map((item) => {
           const active =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
+
           return (
             <Link
               key={item.href}
@@ -153,10 +167,31 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer branding */}
-      <div className="px-4 py-4 border-t border-slate-800/50">
-        <p className="text-xs text-slate-600">Smart Stock © 2025</p>
-      </div>
+      {user && (
+        <div className="px-4 py-4 border-t border-slate-800/50">
+          <div className="flex items-center gap-3 pb-3">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-sm font-semibold text-slate-900">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-slate-100">
+                {user.name}
+              </div>
+              <div className="text-xs text-slate-400">{user.role}</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="w-full rounded-lg border border-slate-800 px-3 py-2 text-sm text-slate-300 transition hover:border-slate-700 hover:bg-slate-800/60 hover:text-slate-100"
+          >
+            Sign out
+          </button>
+
+          <p className="mt-4 text-xs text-slate-600">Smart Stock © 2025</p>
+        </div>
+      )}
     </aside>
   );
 }
