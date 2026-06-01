@@ -39,3 +39,11 @@ export function clearAuth(): void {
 export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
+
+export function normalizeRole(role: string | undefined | null): "Admin" | "Manager" | "Employee" {
+  switch ((role ?? "").toLowerCase().trim()) {
+    case "admin":   return "Admin";
+    case "manager": return "Manager";
+    default:        return "Employee";
+  }
+}

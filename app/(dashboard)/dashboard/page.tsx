@@ -1,40 +1,17 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
+import { apiFetch } from "@/lib/api";
+import type { InventoryItem } from "@/types/index";
 
-const kpis = [
-  {
-    label: "Total Financial Loss",
-    value: "$12,450",
-    sub: "-3.2% MoM",
-    accent: "text-red-400",
-    bar: "bg-red-500/20",
-  },
-  {
-    label: "System Performance",
-    value: "98.7%",
-    sub: "Uptime",
-    accent: "text-emerald-400",
-    bar: "bg-emerald-500/20",
-  },
-  {
-    label: "Active Users",
-    value: "15",
-    sub: "Active Managers",
-    accent: "text-cyan-400",
-    bar: "bg-cyan-500/20",
-  },
-];
+// ─── Static mock data (non-inventory widgets) ────────────────────────────────
 
 const procurement = [
   { item: "Canned Tomatoes", suggested: "5 Boxes" },
   { item: "Olive Oil", suggested: "2 Gallons" },
   { item: "Pasta", suggested: "10 Lbs" },
-];
-
-const inventoryStatus = [
-  { item: "Canned Tomatoes", stock: "30%", action: "Create PO" },
-  { item: "Olive Oil", stock: "20%", action: "Create PO" },
-  { item: "Pasta", stock: "60%", action: "Create PO" },
 ];
 
 const orderHistory = [
@@ -43,137 +20,275 @@ const orderHistory = [
   { item: "Fresh Tomatoes", status: "Pending" },
 ];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getItemStatus(item: InventoryItem): "Low Stock" | "Expiring Soon" | "Healthy" {
+  const threshold = item.minimum_threshold ?? 0;
+  if (item.quantity <= threshold) return "Low Stock";
+  if (item.expiry_date) {
+    const exp = new Date(item.expiry_date);
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    if (exp >= now && exp <= in7Days) return "Expiring Soon";
+  }
+  return "Healthy";
+}
+
+function StatusBadge({ status }: { status: "Low Stock" | "Expiring Soon" | "Healthy" }) {
+  const styles = {
+    "Low Stock":     "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    "Expiring Soon": "bg-amber-500/10  text-amber-400  border-amber-500/20",
+    "Healthy":       "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[status]}`}>
+      {status}
+    </span>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<InventoryItem[]>("/api/inventory")
+      .then(setItems)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load inventory");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // ── Derived inventory KPIs ──────────────────────────────────────────────────
+
+  const totalItems     = items.length;
+  const lowStockCount  = items.filter((i) => i.quantity <= (i.minimum_threshold ?? 0)).length;
+  const expiringSoonCount = items.filter((i) => getItemStatus(i) === "Expiring Soon").length;
+  const healthPct = totalItems === 0 ? 100 : Math.round(((totalItems - lowStockCount) / totalItems) * 100);
+
+  const kpis = [
+    {
+      label:  "Total Stock Items",
+      value:  loading ? "—" : String(totalItems),
+      sub:    "Items in database",
+      accent: "text-cyan-400",
+      bg:     "from-cyan-500/[0.08] to-cyan-500/[0.02]",
+      dot:    "bg-cyan-400",
+      ring:   "border-cyan-500/20",
+    },
+    {
+      label:  "Low Stock",
+      value:  loading ? "—" : String(lowStockCount),
+      sub:    "Below threshold",
+      accent: lowStockCount > 0 ? "text-orange-400" : "text-emerald-400",
+      bg:     lowStockCount > 0 ? "from-orange-500/[0.08] to-orange-500/[0.02]" : "from-emerald-500/[0.08] to-emerald-500/[0.02]",
+      dot:    lowStockCount > 0 ? "bg-orange-400" : "bg-emerald-400",
+      ring:   lowStockCount > 0 ? "border-orange-500/20" : "border-emerald-500/20",
+    },
+    {
+      label:  "Inventory Health",
+      value:  loading ? "—" : `${healthPct}%`,
+      sub:    `${expiringSoonCount} expiring within 7 days`,
+      accent: healthPct >= 80 ? "text-emerald-400" : "text-orange-400",
+      bg:     healthPct >= 80 ? "from-emerald-500/[0.08] to-emerald-500/[0.02]" : "from-orange-500/[0.08] to-orange-500/[0.02]",
+      dot:    healthPct >= 80 ? "bg-emerald-400" : "bg-orange-400",
+      ring:   healthPct >= 80 ? "border-emerald-500/20" : "border-orange-500/20",
+    },
+  ];
+
   return (
     <>
       <Topbar title="Dashboard" />
 
-      <div className="flex-1 px-8 pb-8 grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 pb-8 pt-6 grid grid-cols-12 gap-4 lg:gap-6">
+
+        {/* ── Main content column ── */}
+        <div className="col-span-12 lg:col-span-8 flex flex-col gap-4 lg:gap-5">
+
+          {/* Error banner */}
+          {error && (
+            <div className="flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.08] px-4 py-3 text-sm text-red-400">
+              <span>{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="ml-4 rounded p-0.5 hover:text-red-300 transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Live KPI cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
             {kpis.map((k) => (
               <div
                 key={k.label}
-                className="rounded-xl border border-slate-800 bg-slate-800/60 p-5"
+                className={`rounded-xl border ${k.ring} bg-gradient-to-br ${k.bg} backdrop-blur-sm p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <span className="text-xs text-slate-400">{k.label}</span>
-                  <div className={`h-2 w-2 rounded-full ${k.bar}`} />
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    {k.label}
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${k.dot} shadow-sm`} />
                 </div>
-                <div className={`text-3xl font-bold ${k.accent}`}>{k.value}</div>
-                <div className="text-xs text-slate-400 mt-1">{k.sub}</div>
+                <div className={`text-3xl font-bold tabular-nums ${k.accent}`}>
+                  {k.value}
+                </div>
+                <div className="text-xs text-slate-500 mt-1.5">{k.sub}</div>
               </div>
             ))}
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-slate-200">
-                Monthly Waste Trend
-              </h2>
-              <span className="text-xs text-slate-500">Avg Waste: 281 Lbs</span>
+          {/* Monthly Waste Trend — mock */}
+          <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-200">Monthly Waste Trend</h2>
+              <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
+                Avg 281 Lbs
+              </span>
             </div>
             <WasteTrendChart />
           </div>
 
+          {/* Bottom two-column section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-5">
-              <h2 className="text-sm font-medium text-slate-200 mb-4">
+            {/* AI Procurement Recommendations — mock */}
+            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
+              <h2 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
                 AI Procurement Recommendations
               </h2>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-slate-500 border-b border-slate-700">
-                    <th className="pb-2 text-left font-normal">Item</th>
-                    <th className="pb-2 text-right font-normal">Suggested</th>
+                  <tr className="text-xs text-slate-600 border-b border-slate-800/60">
+                    <th className="pb-2.5 text-left font-medium">Item</th>
+                    <th className="pb-2.5 text-right font-medium">Suggested</th>
                   </tr>
                 </thead>
                 <tbody>
                   {procurement.map((row) => (
-                    <tr key={row.item} className="border-b border-slate-800 last:border-0">
-                      <td className="py-3 text-slate-200">{row.item}</td>
-                      <td className="py-3 text-right text-slate-300">{row.suggested}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-5">
-              <h2 className="text-sm font-medium text-slate-200 mb-4">
-                Inventory Status
-              </h2>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-slate-500 border-b border-slate-700">
-                    <th className="pb-2 text-left font-normal">Item</th>
-                    <th className="pb-2 text-left font-normal">Stock</th>
-                    <th className="pb-2 text-right font-normal">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventoryStatus.map((row) => (
-                    <tr key={row.item} className="border-b border-slate-800 last:border-0">
-                      <td className="py-3 text-slate-200">{row.item}</td>
-                      <td className="py-3 text-slate-300">{row.stock}</td>
+                    <tr key={row.item} className="border-b border-slate-800/40 last:border-0">
+                      <td className="py-3 text-slate-300 text-sm">{row.item}</td>
                       <td className="py-3 text-right">
-                        <button className="text-xs font-medium text-cyan-400 hover:text-cyan-300">
-                          {row.action}
-                        </button>
+                        <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-400">
+                          {row.suggested}
+                        </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Inventory Status — LIVE */}
+            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
+              <h2 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                Inventory Status
+              </h2>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-600 border-b border-slate-800/60">
+                    <th className="pb-2.5 text-left font-medium">Item</th>
+                    <th className="pb-2.5 text-left font-medium">Qty</th>
+                    <th className="pb-2.5 text-right font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center">
+                        <div className="flex items-center justify-center gap-2 text-slate-600 text-xs">
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400" />
+                          Loading…
+                        </div>
+                      </td>
+                    </tr>
+                  ) : items.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center text-sm text-slate-600">
+                        No inventory items found.
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((item) => {
+                      const status = getItemStatus(item);
+                      return (
+                        <tr key={item.item_id} className="border-b border-slate-800/40 last:border-0">
+                          <td className="py-3 text-slate-200 text-sm font-medium">{item.item_name}</td>
+                          <td className="py-3 text-slate-400 text-sm tabular-nums">{item.quantity}</td>
+                          <td className="py-3 text-right">
+                            <StatusBadge status={status} />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
+        {/* ── Alerts sidebar ── */}
         <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-          <h2 className="text-sm font-medium text-slate-300 px-1">Alerts Center</h2>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1 pt-1">
+            Alerts Center
+          </h2>
 
-          <div className="rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/20 to-orange-500/5 p-5">
+          {/* Stockout warning */}
+          <div className="rounded-xl border border-orange-500/25 bg-gradient-to-br from-orange-500/10 to-orange-500/[0.03] p-5">
             <div className="flex items-center gap-2 mb-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
               <span className="text-xs font-semibold uppercase tracking-wide text-orange-300">
                 Stockout Risk Warning
               </span>
             </div>
-            <p className="text-sm text-slate-200 mb-4">
+            <p className="text-sm text-slate-300 mb-4 leading-relaxed">
               Tomatoes 30% confidence level of depletion by Thursday.
             </p>
-            <button className="rounded-md bg-orange-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-400">
+            <button className="rounded-lg bg-orange-500 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-orange-400 transition-colors shadow-sm shadow-orange-500/20">
               Order Now
             </button>
           </div>
 
-          <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+          {/* Expiring today */}
+          <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 backdrop-blur-sm p-5">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Expiring Today
               </span>
             </div>
-            <p className="text-sm text-slate-200 mb-4">2 Gallons Olive Oil</p>
-            <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700">
+            <p className="text-sm text-slate-300 mb-4">2 Gallons Olive Oil</p>
+            <button className="rounded-lg border border-slate-600/80 px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:border-slate-500 transition-all">
               Mark for Use
             </button>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-5">
-            <h3 className="text-sm font-medium text-slate-200 mb-3">
-              Recent Order History
+          {/* Order history */}
+          <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
+              Recent Orders
             </h3>
-            <ul className="flex flex-col gap-2 text-sm">
+            <ul className="flex flex-col gap-2.5">
               {orderHistory.map((o) => (
                 <li
                   key={o.item}
-                  className="flex items-center justify-between text-slate-300"
+                  className="flex items-center justify-between gap-2"
                 >
-                  <span>{o.item}</span>
+                  <span className="text-sm text-slate-300 truncate">{o.item}</span>
                   <span
                     className={
                       o.status === "Pending"
-                        ? "text-xs text-orange-400"
-                        : "text-xs text-emerald-400"
+                        ? "shrink-0 rounded-full bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400"
+                        : "shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400"
                     }
                   >
                     {o.status}

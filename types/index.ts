@@ -3,7 +3,7 @@ export type InventoryItem = {
   item_name: string;
   category: string;
   quantity: number;
-  minimum_threshold: number;
+  minimum_threshold?: number;
   expiry_date: string | null;
 };
 
