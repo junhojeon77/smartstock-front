@@ -196,6 +196,14 @@ export default function LoginPage() {
           </svg>
           Continue with Google
         </button>
+
+        {/* Sign up link */}
+        <p className="mt-6 text-center text-sm text-slate-400">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="font-medium text-cyan-500 hover:text-cyan-400 transition-colors">
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   );
