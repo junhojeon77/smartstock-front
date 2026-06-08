@@ -4,14 +4,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { clearAuth, getUser } from "@/lib/auth";
-import type { AuthUser } from "@/lib/auth";
+import { clearAuth, getUser, normalizeRole } from "@/lib/auth";
+import type { AuthUser, Role } from "@/lib/auth";
 
 type NavItem = {
   label: string;
   href: string;
   icon: ReactNode;
-  adminOnly?: boolean;
+  /** When set, only these roles see the item. Omit for everyone. */
+  roles?: Role[];
 };
 
 const nav: NavItem[] = [
@@ -66,6 +67,18 @@ const nav: NavItem[] = [
     ),
   },
   {
+    label: "Manage Accounts",
+    href: "/accounts",
+    roles: ["Owner"],
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+        <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M19 8v6M22 11h-6" />
+      </svg>
+    ),
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: (
@@ -97,7 +110,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   }
 
   const items = nav.filter(
-    (item) => !item.adminOnly || user?.role === "Admin",
+    (item) => !item.roles || item.roles.includes(normalizeRole(user?.role)),
   );
 
   return (

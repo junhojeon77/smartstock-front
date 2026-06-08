@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
+import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { apiFetch } from "@/lib/api";
 import type { InventoryItem } from "@/types/index";
 
@@ -242,35 +243,8 @@ export default function DashboardPage() {
             Alerts Center
           </h2>
 
-          {/* Stockout warning */}
-          <div className="rounded-xl border border-orange-500/25 bg-gradient-to-br from-orange-500/10 to-orange-500/[0.03] p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-orange-300">
-                Stockout Risk Warning
-              </span>
-            </div>
-            <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-              Tomatoes 30% confidence level of depletion by Thursday.
-            </p>
-            <button className="rounded-lg bg-orange-500 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-orange-400 transition-colors shadow-sm shadow-orange-500/20">
-              Order Now
-            </button>
-          </div>
-
-          {/* Expiring today */}
-          <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 backdrop-blur-sm p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Expiring Today
-              </span>
-            </div>
-            <p className="text-sm text-slate-300 mb-4">2 Gallons Olive Oil</p>
-            <button className="rounded-lg border border-slate-600/80 px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:border-slate-500 transition-all">
-              Mark for Use
-            </button>
-          </div>
+          {/* Live stockout / expiry alerts — derived from inventory */}
+          <AlertsPanel />
 
           {/* Order history */}
           <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { apiFetch } from "@/lib/api";
+import { configureThreshold } from "@/lib/alerts";
 import { getUser, normalizeRole } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import type { InventoryItem } from "@/types/index";
@@ -82,6 +83,11 @@ export default function InventoryPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  // Inline minimum-threshold editing (dedicated /threshold endpoint)
+  const [thresholdEditId, setThresholdEditId] = useState<number | null>(null);
+  const [thresholdValue, setThresholdValue] = useState("");
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -204,6 +210,38 @@ export default function InventoryPage() {
       await loadInventory();
     } catch (err) {
       setPageError(err instanceof Error ? err.message : "Failed to delete item");
+    }
+  }
+
+  // ── Inline threshold config ──────────────────────────────────────────────────
+
+  function startThresholdEdit(item: InventoryItem) {
+    setThresholdEditId(item.item_id);
+    setThresholdValue(item.minimum_threshold != null ? String(item.minimum_threshold) : "0");
+    setPageError(null);
+  }
+
+  function cancelThresholdEdit() {
+    setThresholdEditId(null);
+    setThresholdValue("");
+  }
+
+  async function saveThreshold(item: InventoryItem) {
+    const next = Number(thresholdValue);
+    if (Number.isNaN(next) || next < 0) {
+      setPageError("Threshold must be a non-negative number.");
+      return;
+    }
+    setSavingThreshold(true);
+    setPageError(null);
+    try {
+      await configureThreshold(item.item_id, next);
+      await loadInventory();
+      cancelThresholdEdit();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Failed to update threshold");
+    } finally {
+      setSavingThreshold(false);
     }
   }
 
@@ -498,7 +536,64 @@ export default function InventoryPage() {
                           )}
                         </td>
                         <td className="px-5 py-4 text-slate-400 tabular-nums">
-                          {item.minimum_threshold ?? "—"}
+                          {thresholdEditId === item.item_id ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                autoFocus
+                                value={thresholdValue}
+                                onChange={(e) => setThresholdValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveThreshold(item);
+                                  if (e.key === "Escape") cancelThresholdEdit();
+                                }}
+                                className="w-20 rounded-lg border border-slate-700/60 bg-slate-800/60 px-2 py-1 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                              />
+                              <button
+                                onClick={() => saveThreshold(item)}
+                                disabled={savingThreshold}
+                                className="rounded-md p-1 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+                                aria-label="Save threshold"
+                              >
+                                {savingThreshold ? (
+                                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-emerald-400" />
+                                ) : (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                                    <path d="M20 6L9 17l-5-5" />
+                                  </svg>
+                                )}
+                              </button>
+                              <button
+                                onClick={cancelThresholdEdit}
+                                disabled={savingThreshold}
+                                className="rounded-md p-1 text-slate-500 hover:bg-slate-700/60 hover:text-slate-300 disabled:opacity-50"
+                                aria-label="Cancel"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.minimum_threshold ?? "—"}</span>
+                              {canEdit && (
+                                <button
+                                  onClick={() => startThresholdEdit(item)}
+                                  className="rounded-md p-1 text-slate-600 hover:bg-slate-700/60 hover:text-cyan-400 transition-colors"
+                                  aria-label={`Configure threshold for ${item.item_name}`}
+                                  title="Configure minimum threshold"
+                                >
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-5 py-4 text-slate-400 tabular-nums">
                           {formatExpiry(item.expiry_date)}
