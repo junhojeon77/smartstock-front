@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, clearAuth } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
+import { NotificationBell } from "@/components/alerts/NotificationBell";
 
 type TopbarProps = {
   title: string;
@@ -32,6 +33,9 @@ export function Topbar({ title }: TopbarProps) {
       </h1>
 
       <div className="flex items-center gap-2 sm:gap-3 ml-4 shrink-0">
+        {/* Live alert notifications */}
+        <NotificationBell />
+
         {/* Name + role (hidden on very small screens) */}
         <div className="hidden sm:block text-right leading-none">
           <div className="text-[11px] text-slate-500 mb-0.5">Signed in</div>
