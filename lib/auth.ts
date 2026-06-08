@@ -1,8 +1,10 @@
+export type Role = "Owner" | "Admin" | "Manager" | "Employee";
+
 export type AuthUser = {
   user_id?: number;
   name: string;
   email: string;
-  role: "Admin" | "Manager" | "Employee" | string;
+  role: Role | string;
 };
 
 const TOKEN_KEY = "smartstock_token";
@@ -40,8 +42,9 @@ export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
 
-export function normalizeRole(role: string | undefined | null): "Admin" | "Manager" | "Employee" {
+export function normalizeRole(role: string | undefined | null): Role {
   switch ((role ?? "").toLowerCase().trim()) {
+    case "owner":   return "Owner";
     case "admin":   return "Admin";
     case "manager": return "Manager";
     default:        return "Employee";
