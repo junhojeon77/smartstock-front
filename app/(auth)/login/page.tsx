@@ -65,7 +65,8 @@ export default function LoginPage() {
         };
       }
       saveAuth(token, user);
-      router.push("/dashboard");
+      // Owners go straight to account management; everyone else to the dashboard.
+      router.push(normalizeRole(user.role) === "Owner" ? "/accounts" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

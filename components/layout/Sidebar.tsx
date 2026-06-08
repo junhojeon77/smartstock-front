@@ -15,10 +15,14 @@ type NavItem = {
   roles?: Role[];
 };
 
+// Operational pages — everyone except Owner (Owner only manages accounts).
+const OPERATIONAL: Role[] = ["Admin", "Manager", "Employee"];
+
 const nav: NavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
+    roles: OPERATIONAL,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -31,6 +35,7 @@ const nav: NavItem[] = [
   {
     label: "Inventory",
     href: "/inventory",
+    roles: OPERATIONAL,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <path d="M20 7H4v13h16V7zM9 4h6v3H9V4zM4 12h16" />
@@ -51,6 +56,7 @@ const nav: NavItem[] = [
   {
     label: "Smart Sourcing",
     href: "/sourcing",
+    roles: OPERATIONAL,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <path d="M3 3h2l2 12h11l2-8H7M9 21a1 1 0 100-2 1 1 0 000 2zm10 0a1 1 0 100-2 1 1 0 000 2z" />
@@ -60,6 +66,7 @@ const nav: NavItem[] = [
   {
     label: "Reports",
     href: "/reports",
+    roles: OPERATIONAL,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6" />
@@ -81,6 +88,7 @@ const nav: NavItem[] = [
   {
     label: "Settings",
     href: "/settings",
+    roles: OPERATIONAL,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <circle cx="12" cy="12" r="3" />

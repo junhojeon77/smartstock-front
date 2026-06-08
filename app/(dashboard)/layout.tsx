@@ -1,23 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, getUser, normalizeRole } from "@/lib/auth";
+
+// Owners only get account management + the AI assistant.
+const OWNER_ALLOWED = ["/accounts", "/assistant"];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [checking, setChecking] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
-    } else {
-      setChecking(false);
+      return;
     }
-  }, [router]);
+
+    // Keep Owners out of operational pages, even via direct URL.
+    if (normalizeRole(getUser()?.role) === "Owner") {
+      const allowed = OWNER_ALLOWED.some(
+        (p) => pathname === p || pathname?.startsWith(p + "/"),
+      );
+      if (!allowed) {
+        router.replace("/accounts");
+        return;
+      }
+    }
+
+    setChecking(false);
+  }, [router, pathname]);
 
   if (checking) {
     return (

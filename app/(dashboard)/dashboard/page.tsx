@@ -5,6 +5,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
 import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { apiFetch } from "@/lib/api";
+import { EXPIRY_WARNING_DAYS } from "@/lib/alerts";
 import type { InventoryItem } from "@/types/index";
 
 // ─── Static mock data (non-inventory widgets) ────────────────────────────────
@@ -23,26 +24,44 @@ const orderHistory = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getItemStatus(item: InventoryItem): "Low Stock" | "Expiring Soon" | "Healthy" {
-  const threshold = item.minimum_threshold ?? 0;
-  if (item.quantity <= threshold) return "Low Stock";
-  if (item.expiry_date) {
-    const exp = new Date(item.expiry_date);
-    const now = new Date();
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    if (exp >= now && exp <= in7Days) return "Expiring Soon";
-  }
+type ItemStatus =
+  | "Out of Stock"
+  | "Expired"
+  | "Low Stock"
+  | "Expiring Soon"
+  | "Healthy";
+
+// Single status per item, by priority (worst first). Mirrors the alert rules in
+// lib/alerts.ts so the dashboard, AlertsPanel, and notification bell agree.
+function getItemStatus(item: InventoryItem, now: Date = new Date()): ItemStatus {
+  const quantity = Number(item.quantity) || 0;
+  const threshold = Number(item.minimum_threshold ?? 0) || 0;
+
+  if (quantity <= 0) return "Out of Stock";
+
+  const exp = item.expiry_date ? new Date(item.expiry_date) : null;
+  const expValid = exp != null && !Number.isNaN(exp.getTime());
+  const days = expValid
+    ? Math.floor((exp!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+    : null;
+
+  if (days != null && days < 0) return "Expired";
+  if (quantity <= threshold) return "Low Stock";
+  if (days != null && days <= EXPIRY_WARNING_DAYS) return "Expiring Soon";
   return "Healthy";
 }
 
-function StatusBadge({ status }: { status: "Low Stock" | "Expiring Soon" | "Healthy" }) {
-  const styles = {
-    "Low Stock":     "bg-orange-500/10 text-orange-400 border-orange-500/20",
-    "Expiring Soon": "bg-amber-500/10  text-amber-400  border-amber-500/20",
-    "Healthy":       "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  };
+const STATUS_STYLES: Record<ItemStatus, string> = {
+  "Out of Stock":  "bg-red-500/10    text-red-400     border-red-500/20",
+  "Expired":       "bg-rose-500/10   text-rose-400    border-rose-500/20",
+  "Low Stock":     "bg-orange-500/10 text-orange-400  border-orange-500/20",
+  "Expiring Soon": "bg-amber-500/10  text-amber-400   border-amber-500/20",
+  "Healthy":       "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+};
+
+function StatusBadge({ status }: { status: ItemStatus }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[status]}`}>
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`}>
       {status}
     </span>
   );
@@ -66,10 +85,13 @@ export default function DashboardPage() {
 
   // ── Derived inventory KPIs ──────────────────────────────────────────────────
 
+  const statuses = items.map((i) => getItemStatus(i));
   const totalItems     = items.length;
-  const lowStockCount  = items.filter((i) => i.quantity <= (i.minimum_threshold ?? 0)).length;
-  const expiringSoonCount = items.filter((i) => getItemStatus(i) === "Expiring Soon").length;
-  const healthPct = totalItems === 0 ? 100 : Math.round(((totalItems - lowStockCount) / totalItems) * 100);
+  const lowStockCount  = statuses.filter((s) => s === "Out of Stock" || s === "Low Stock").length;
+  const expiringSoonCount = statuses.filter((s) => s === "Expiring Soon").length;
+  const expiredCount   = statuses.filter((s) => s === "Expired").length;
+  const healthyCount   = statuses.filter((s) => s === "Healthy").length;
+  const healthPct = totalItems === 0 ? 100 : Math.round((healthyCount / totalItems) * 100);
 
   const kpis = [
     {
@@ -93,7 +115,7 @@ export default function DashboardPage() {
     {
       label:  "Inventory Health",
       value:  loading ? "—" : `${healthPct}%`,
-      sub:    `${expiringSoonCount} expiring within 7 days`,
+      sub:    `${expiringSoonCount} expiring ≤${EXPIRY_WARNING_DAYS}d · ${expiredCount} expired`,
       accent: healthPct >= 80 ? "text-emerald-400" : "text-orange-400",
       bg:     healthPct >= 80 ? "from-emerald-500/[0.08] to-emerald-500/[0.02]" : "from-orange-500/[0.08] to-orange-500/[0.02]",
       dot:    healthPct >= 80 ? "bg-emerald-400" : "bg-orange-400",
