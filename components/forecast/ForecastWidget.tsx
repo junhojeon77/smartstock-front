@@ -58,7 +58,17 @@ export function ForecastWidget({ items: itemsProp }: Props = {}) {
       const result = await fetchForecast(Number(selectedId));
       setForecast(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Forecast failed.");
+      const msg = e instanceof Error ? e.message : "";
+      if (/404|no historical data/i.test(msg)) {
+        const name =
+          items.find((i) => i.item_id === Number(selectedId))?.item_name ??
+          "this item";
+        setError(
+          `No sales history for ${name} yet, so it can't be forecast. Try an item with history (e.g. Fresh Tomatoes or Olive Oil).`,
+        );
+      } else {
+        setError(msg || "Forecast failed.");
+      }
     } finally {
       setLoading(false);
     }
