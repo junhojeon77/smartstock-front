@@ -13,26 +13,41 @@ const confidenceStyles: Record<string, string> = {
   Low: "text-red-400 bg-red-500/10",
 };
 
+type Props = {
+  /**
+   * Inventory items to populate the picker. When omitted (e.g. standalone use)
+   * the widget fetches GET /api/inventory itself.
+   */
+  items?: InventoryItem[];
+};
+
 /**
  * Demand forecast widget. Lets the user pick an inventory item, POSTs to the
  * backend /api/forecast endpoint, and displays the validated prediction. Items
  * without stored sales history return a 404 from the backend, surfaced inline.
  */
-export function ForecastWidget() {
-  const [items, setItems] = useState<InventoryItem[]>([]);
+export function ForecastWidget({ items: itemsProp }: Props = {}) {
+  const [fetchedItems, setFetchedItems] = useState<InventoryItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use items supplied by the parent (GET /api/inventory) when available;
+  // otherwise self-fetch so the widget still works standalone.
+  const items = itemsProp ?? fetchedItems;
+
   useEffect(() => {
+    if (itemsProp) return;
     apiFetch<InventoryItem[]>("/api/inventory")
-      .then((data) => {
-        setItems(data);
-        if (data.length > 0) setSelectedId(data[0].item_id);
-      })
+      .then(setFetchedItems)
       .catch(() => setError("Could not load inventory items."));
-  }, []);
+  }, [itemsProp]);
+
+  // Default the picker to the first item once a list is available.
+  useEffect(() => {
+    if (selectedId === "" && items.length > 0) setSelectedId(items[0].item_id);
+  }, [items, selectedId]);
 
   async function handleGenerate() {
     if (selectedId === "") return;

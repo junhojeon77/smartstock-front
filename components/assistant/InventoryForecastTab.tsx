@@ -59,7 +59,7 @@ export function InventoryForecastTab({ items, loading, error }: Props) {
       )}
 
       {/* Interactive demand forecast (backend /api/forecast) */}
-      <ForecastWidget />
+      <ForecastWidget items={items} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Current inventory status (live aggregates) */}
