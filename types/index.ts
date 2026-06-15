@@ -34,6 +34,37 @@ export type StockAlertsResponse = {
   items_at_risk: InventoryItem[];
 };
 
+/** A single point of sales history for an inventory item. */
+export type SalesHistoryPoint = {
+  date: string;
+  quantity_sold: number;
+};
+
+/** Shape returned by the backend POST /api/forecast endpoint. */
+export type ForecastResponse = {
+  item_id: number;
+  predicted_demand: number;
+  /** Model confidence in the range 0..1. */
+  confidence_level: number;
+  message: string;
+};
+
+export type ChatRole = "user" | "assistant";
+
+export type ChatMessage = {
+  id: string;
+  role: ChatRole;
+  content: string;
+  /** True while the assistant reply is still being fetched. */
+  pending?: boolean;
+};
+
+/** Shape returned by the backend POST /api/chat endpoint. */
+export type ChatResponse = {
+  response: string;
+  source?: string;
+};
+
 export type MenuItem = {
   id: string;
   name: string;
