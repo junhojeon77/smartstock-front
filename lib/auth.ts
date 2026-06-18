@@ -1,80 +1,52 @@
-import "server-only";
+export type Role = "Owner" | "Admin" | "Manager" | "Employee";
 
-import { cookies } from "next/headers";
-import {
-  SESSION_COOKIE,
-  decodeSession,
-  encodeSession,
-  type Role,
-  type SessionUser,
-} from "./session";
-
-type MockUser = SessionUser & { password: string };
-
-// In-memory mock store. Resets on dev-server restart.
-// The real persistence layer will live in smartstock-back.
-const users: MockUser[] = [
-  {
-    id: "1",
-    name: "Jun Ho Jeon",
-    email: "admin@smartstock.com",
-    password: "admin123",
-    role: "Admin",
-  },
-  {
-    id: "2",
-    name: "Jun Ho Jeon",
-    email: "employee@smartstock.com",
-    password: "employee123",
-    role: "Employee",
-  },
-];
-
-export function listUsers(): SessionUser[] {
-  return users.map(({ password: _pw, ...rest }) => rest);
-}
-
-export function addUser(input: {
+export type AuthUser = {
+  user_id?: number;
   name: string;
   email: string;
-  password: string;
-  role: Role;
-}): SessionUser {
-  const existing = users.find(
-    (u) => u.email.toLowerCase() === input.email.toLowerCase(),
-  );
-  if (existing) {
-    throw new Error("A user with that email already exists.");
+  role: Role | string;
+};
+
+const TOKEN_KEY = "smartstock_token";
+const USER_KEY = "smartstock_user";
+
+export function saveAuth(token: string, user: AuthUser): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
   }
-  const created: MockUser = { id: String(users.length + 1), ...input };
-  users.push(created);
-  const { password: _pw, ...rest } = created;
-  return rest;
 }
 
-export function authenticate(email: string, password: string): SessionUser | null {
-  const match = users.find(
-    (u) =>
-      u.email.toLowerCase() === email.toLowerCase() && u.password === password,
-  );
-  if (!match) return null;
-  const { password: _pw, ...rest } = match;
-  return rest;
+export function clearAuth(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 }
 
-export function getSession(): SessionUser | null {
-  return decodeSession(cookies().get(SESSION_COOKIE)?.value);
+export function isAuthenticated(): boolean {
+  return getToken() !== null;
 }
 
-export function setSession(user: SessionUser): void {
-  cookies().set(SESSION_COOKIE, encodeSession(user), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-}
-
-export function clearSession(): void {
-  cookies().delete(SESSION_COOKIE);
+export function normalizeRole(role: string | undefined | null): Role {
+  switch ((role ?? "").toLowerCase().trim()) {
+    case "owner":   return "Owner";
+    case "admin":   return "Admin";
+    case "manager": return "Manager";
+    default:        return "Employee";
+  }
 }

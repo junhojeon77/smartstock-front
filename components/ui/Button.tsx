@@ -1,7 +1,7 @@
 import { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
@@ -10,11 +10,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-slate-900 text-white hover:bg-slate-800 focus-visible:ring-slate-900",
+    "bg-cyan-500 text-ink font-semibold hover:bg-cyan-400 active:bg-cyan-600 focus-visible:ring-cyan-500/40 shadow-sm shadow-cyan-500/20",
   secondary:
-    "bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400",
+    "bg-slate-800 text-slate-200 border border-slate-700/80 hover:bg-slate-700 hover:border-slate-600 focus-visible:ring-slate-500/30",
   ghost:
-    "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-300",
+    "bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-slate-200 focus-visible:ring-slate-700",
+  danger:
+    "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 focus-visible:ring-red-500/30",
 };
 
 export function Button({
@@ -26,7 +28,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]",
         variants[variant],
         fullWidth && "w-full",
         className,
