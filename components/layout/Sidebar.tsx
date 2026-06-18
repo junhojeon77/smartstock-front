@@ -191,7 +191,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {user && (
         <div className="px-4 py-4 border-t border-slate-800/50">
           <div className="flex items-center gap-3 pb-3">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-sm font-semibold text-slate-900">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-sm font-semibold text-ink">
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">

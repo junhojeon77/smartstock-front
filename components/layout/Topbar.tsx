@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getUser, clearAuth } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import { NotificationBell } from "@/components/alerts/NotificationBell";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type TopbarProps = {
   title: string;
@@ -33,6 +34,9 @@ export function Topbar({ title }: TopbarProps) {
       </h1>
 
       <div className="flex items-center gap-2 sm:gap-3 ml-4 shrink-0">
+        {/* Light / dark theme toggle */}
+        <ThemeToggle />
+
         {/* Live alert notifications */}
         <NotificationBell />
 
@@ -46,7 +50,7 @@ export function Topbar({ title }: TopbarProps) {
 
         {/* Avatar with role badge */}
         <div className="relative">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-xs font-bold text-slate-900 ring-2 ring-slate-800/80 shadow-md">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-xs font-bold text-ink ring-2 ring-slate-800/80 shadow-md">
             {displayName.charAt(0).toUpperCase()}
           </div>
           {displayRole && (

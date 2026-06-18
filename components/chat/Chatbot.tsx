@@ -81,7 +81,7 @@ export function Chatbot() {
             <div
               className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
                 m.role === "user"
-                  ? "bg-cyan-500 text-slate-900"
+                  ? "bg-cyan-500 text-ink"
                   : "border border-slate-800/70 bg-slate-900/60 text-slate-200"
               } ${m.pending ? "animate-pulse" : ""}`}
             >
