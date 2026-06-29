@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api";
-import type { ItemPricesResponse, SupplierOffer } from "@/types/index";
+import type { ItemPricesResponse, Supplier, SupplierOffer } from "@/types/index";
 
 /**
  * Supplier price-comparison client.
@@ -28,6 +28,7 @@ function parseOffer(raw: unknown): SupplierOffer | null {
     supplier_id: o.supplier_id,
     supplier_name: o.supplier_name,
     price: o.price,
+    last_updated: typeof o.last_updated === "string" ? o.last_updated : undefined,
     is_lowest: o.is_lowest === true,
   };
 }
@@ -81,4 +82,28 @@ export async function fetchItemPrices(
     throw new Error(`Invalid prices response: ${parsed.error}`);
   }
   return parsed.value;
+}
+
+function parseSupplier(raw: unknown): Supplier | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const s = raw as Record<string, unknown>;
+  if (!isFiniteNumber(s.supplier_id)) return null;
+  if (typeof s.supplier_name !== "string") return null;
+  return {
+    supplier_id: s.supplier_id,
+    supplier_name: s.supplier_name,
+    contact_info: typeof s.contact_info === "string" ? s.contact_info : "",
+    location: typeof s.location === "string" ? s.location : "",
+  };
+}
+
+/** Fetch the supplier registry (GET /api/suppliers), dropping malformed rows. */
+export async function fetchSuppliers(): Promise<Supplier[]> {
+  const raw = await apiFetch<unknown>("/api/suppliers");
+  if (!Array.isArray(raw)) {
+    throw new Error("Invalid suppliers response: expected an array.");
+  }
+  return raw
+    .map(parseSupplier)
+    .filter((s): s is Supplier => s !== null);
 }

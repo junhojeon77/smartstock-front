@@ -78,11 +78,21 @@ export type Vendor = {
   location: string;
 };
 
+/** A supplier in the registry, from GET /api/suppliers. */
+export type Supplier = {
+  supplier_id: number;
+  supplier_name: string;
+  contact_info: string;
+  location: string;
+};
+
 /** One supplier's offer for an item, from GET /api/inventory/<id>/prices. */
 export type SupplierOffer = {
   supplier_id: number;
   supplier_name: string;
   price: number;
+  /** ISO timestamp of the last price update, when the backend supplies one. */
+  last_updated?: string;
   /** Backend marks the cheapest offer to highlight. */
   is_lowest: boolean;
 };

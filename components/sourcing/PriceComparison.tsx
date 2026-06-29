@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { fetchItemPrices } from "@/lib/suppliers";
 import { Card } from "@/components/ui/Card";
@@ -70,6 +70,28 @@ export function PriceComparison({ items: itemsProp }: Props = {}) {
     };
   }, [itemsProp]);
 
+  // Real, derivable stats: how many distinct suppliers quoted, and the average
+  // savings of each item's cheapest offer against its dearest.
+  const stats = useMemo(() => {
+    const supplierIds = new Set<number>();
+    const savings: number[] = [];
+    for (const { prices } of rows) {
+      const offers = prices.offers;
+      for (const o of offers) supplierIds.add(o.supplier_id);
+      const max = Math.max(...offers.map((o) => o.price));
+      if (max > 0) savings.push((max - prices.best_price) / max);
+    }
+    const avgSavings =
+      savings.length > 0
+        ? savings.reduce((a, b) => a + b, 0) / savings.length
+        : 0;
+    return {
+      suppliers: supplierIds.size,
+      items: rows.length,
+      avgSavingsPct: Math.round(avgSavings * 100),
+    };
+  }, [rows]);
+
   return (
     <Card className="p-5">
       <div>
@@ -80,6 +102,36 @@ export function PriceComparison({ items: itemsProp }: Props = {}) {
           Vendor offers for every item; the lowest price is highlighted.
         </p>
       </div>
+
+      {!loading && rows.length > 0 && (
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-slate-800/70 bg-slate-900/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Active suppliers
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">
+              {stats.suppliers}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-800/70 bg-slate-900/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Items compared
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">
+              {stats.items}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-800/70 bg-slate-900/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Avg. savings
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-emerald-400">
+              {stats.avgSavingsPct}%
+            </p>
+            <p className="text-[11px] text-slate-500">best vs. highest offer</p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
