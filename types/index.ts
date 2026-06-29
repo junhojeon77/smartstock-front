@@ -77,3 +77,20 @@ export type Vendor = {
   name: string;
   location: string;
 };
+
+/** One supplier's offer for an item, from GET /api/inventory/<id>/prices. */
+export type SupplierOffer = {
+  supplier_id: number;
+  supplier_name: string;
+  price: number;
+  /** Backend marks the cheapest offer to highlight. */
+  is_lowest: boolean;
+};
+
+/** Shape returned by GET /api/inventory/<id>/prices. Offers are sorted cheapest first. */
+export type ItemPricesResponse = {
+  item_id: number;
+  offer_count: number;
+  best_price: number;
+  offers: SupplierOffer[];
+};
