@@ -1,8 +1,12 @@
+import { Topbar } from "@/components/layout/Topbar";
+
 export default function SettingsPage() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <p className="text-gray-600">Account and workspace preferences.</p>
-    </div>
+    <>
+      <Topbar title="Settings" />
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 pb-8 pt-6">
+        <p className="text-slate-500">Account and workspace preferences.</p>
+      </div>
+    </>
   );
 }
