@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { InventoryForecastTab } from "@/components/assistant/InventoryForecastTab";
 import { Chatbot } from "@/components/chat/Chatbot";
 import { HistoricalTrendsTab } from "@/components/assistant/HistoricalTrendsTab";
-import { SettingsTab } from "@/components/assistant/SettingsTab";
-import { AlertsCenter } from "@/components/assistant/AlertsCenter";
+import { AlertsCenter } from "@/components/alerts/AlertsCenter";
 import { apiFetch } from "@/lib/api";
 import type { InventoryItem } from "@/types/index";
 
@@ -14,7 +13,6 @@ const TABS = [
   "Inventory & Forecasting AI",
   "Operations NLP Assistant",
   "Historical Trends",
-  "Settings",
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -25,7 +23,7 @@ export default function AIAssistantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     apiFetch<InventoryItem[]>("/api/inventory")
       .then(setItems)
       .catch((err: unknown) =>
@@ -33,6 +31,8 @@ export default function AIAssistantPage() {
       )
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(load, [load]);
 
   return (
     <>
@@ -67,6 +67,7 @@ export default function AIAssistantPage() {
                 items={items}
                 loading={loading}
                 error={error}
+                onRefresh={load}
               />
             </div>
             <div className="col-span-12 lg:col-span-4">
@@ -82,8 +83,6 @@ export default function AIAssistantPage() {
         )}
 
         {tab === "Historical Trends" && <HistoricalTrendsTab />}
-
-        {tab === "Settings" && <SettingsTab />}
       </div>
     </>
   );

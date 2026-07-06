@@ -1,29 +1,15 @@
 import { apiFetch } from "@/lib/api";
 import type { ChatResponse } from "@/types/index";
 
-/**
- * AI assistant chat client (template / mock phase).
- *
- * This talks to the backend POST /api/chat endpoint, which is currently a mock
- * that echoes the query back (a real local model is planned there later). To
- * keep the page demoable even when the backend is offline, we fall back to a
- * deterministic canned reply rather than surfacing a transport error in the
- * chat thread.
- */
-
-/** Canned, offline reply used when the backend chat endpoint is unreachable. */
-export function mockReply(message: string): string {
-  const trimmed = message.trim();
-  if (!trimmed) {
-    return "Ask me about stock levels, demand forecasts, or reorder timing.";
-  }
-  return `(demo) I received: "${trimmed}". Once the AI model is connected, I'll answer procurement questions using your live inventory and sales history.`;
-}
+/** Shown when the assistant endpoint can't be reached (network/backend down). */
+export const UNAVAILABLE_MESSAGE =
+  "Couldn't reach the assistant right now. Try again in a moment.";
 
 /**
- * Send a user message to the assistant and return the reply text. Never throws:
- * a backend/transport failure resolves to a mock reply so the chat UI keeps
- * working in the template phase.
+ * Send a user message to the AI assistant — POST /api/chat, a rule-based
+ * intent layer over live inventory/supplier/sales data with a TF-IDF fallback
+ * model (see backend chatbot.py). Never throws: a transport failure resolves
+ * to UNAVAILABLE_MESSAGE so the chat thread always gets a reply.
  */
 export async function sendChatMessage(message: string): Promise<string> {
   try {
@@ -33,8 +19,8 @@ export async function sendChatMessage(message: string): Promise<string> {
     });
     return typeof res?.response === "string" && res.response.length > 0
       ? res.response
-      : mockReply(message);
+      : UNAVAILABLE_MESSAGE;
   } catch {
-    return mockReply(message);
+    return UNAVAILABLE_MESSAGE;
   }
 }

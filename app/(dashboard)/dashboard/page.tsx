@@ -3,61 +3,16 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
-import { AlertsPanel } from "@/components/alerts/AlertsPanel";
+import { AlertsCenter } from "@/components/alerts/AlertsCenter";
+import { ReorderSuggestions } from "@/components/inventory/ReorderSuggestions";
 import { apiFetch } from "@/lib/api";
 import { EXPIRY_WARNING_DAYS } from "@/lib/alerts";
+import {
+  getItemStatus,
+  STATUS_STYLES,
+  type ItemStatus,
+} from "@/lib/inventory";
 import type { InventoryItem } from "@/types/index";
-
-// ─── Static mock data (non-inventory widgets) ────────────────────────────────
-
-const procurement = [
-  { item: "Canned Tomatoes", suggested: "5 Boxes" },
-  { item: "Olive Oil", suggested: "2 Gallons" },
-  { item: "Pasta", suggested: "10 Lbs" },
-];
-
-const orderHistory = [
-  { item: "Canned Tomatoes", status: "Delivered" },
-  { item: "Olive Oil", status: "Delivered" },
-  { item: "Fresh Tomatoes", status: "Pending" },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-type ItemStatus =
-  | "Out of Stock"
-  | "Expired"
-  | "Low Stock"
-  | "Expiring Soon"
-  | "Healthy";
-
-// Single status per item, by priority (worst first). Mirrors the alert rules in
-// lib/alerts.ts so the dashboard, AlertsPanel, and notification bell agree.
-function getItemStatus(item: InventoryItem, now: Date = new Date()): ItemStatus {
-  const quantity = Number(item.quantity) || 0;
-  const threshold = Number(item.minimum_threshold ?? 0) || 0;
-
-  if (quantity <= 0) return "Out of Stock";
-
-  const exp = item.expiry_date ? new Date(item.expiry_date) : null;
-  const expValid = exp != null && !Number.isNaN(exp.getTime());
-  const days = expValid
-    ? Math.floor((exp!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
-    : null;
-
-  if (days != null && days < 0) return "Expired";
-  if (quantity <= threshold) return "Low Stock";
-  if (days != null && days <= EXPIRY_WARNING_DAYS) return "Expiring Soon";
-  return "Healthy";
-}
-
-const STATUS_STYLES: Record<ItemStatus, string> = {
-  "Out of Stock":  "bg-red-500/10    text-red-400     border-red-500/20",
-  "Expired":       "bg-rose-500/10   text-rose-400    border-rose-500/20",
-  "Low Stock":     "bg-orange-500/10 text-orange-400  border-orange-500/20",
-  "Expiring Soon": "bg-amber-500/10  text-amber-400   border-amber-500/20",
-  "Healthy":       "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-};
 
 function StatusBadge({ status }: { status: ItemStatus }) {
   return (
@@ -173,7 +128,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Monthly Waste Trend</h2>
               <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
-                Avg 281 Lbs
+                Demo data
               </span>
             </div>
             <WasteTrendChart />
@@ -181,33 +136,8 @@ export default function DashboardPage() {
 
           {/* Bottom two-column section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* AI Procurement Recommendations — mock */}
-            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-                AI Procurement Recommendations
-              </h2>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-slate-600 border-b border-slate-800/60">
-                    <th className="pb-2.5 text-left font-medium">Item</th>
-                    <th className="pb-2.5 text-right font-medium">Suggested</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {procurement.map((row) => (
-                    <tr key={row.item} className="border-b border-slate-800/40 last:border-0">
-                      <td className="py-3 text-slate-300 text-sm">{row.item}</td>
-                      <td className="py-3 text-right">
-                        <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-400">
-                          {row.suggested}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* AI Procurement Recommendations — live, explainable, overridable */}
+            <ReorderSuggestions items={items} loading={loading} />
 
             {/* Inventory Status — LIVE */}
             <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
@@ -259,41 +189,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Alerts sidebar ── */}
-        <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1 pt-1">
-            Alerts Center
-          </h2>
-
-          {/* Live stockout / expiry alerts — derived from inventory */}
-          <AlertsPanel />
-
-          {/* Order history */}
-          <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
-              Recent Orders
-            </h3>
-            <ul className="flex flex-col gap-2.5">
-              {orderHistory.map((o) => (
-                <li
-                  key={o.item}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <span className="text-sm text-slate-300 truncate">{o.item}</span>
-                  <span
-                    className={
-                      o.status === "Pending"
-                        ? "shrink-0 rounded-full bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400"
-                        : "shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400"
-                    }
-                  >
-                    {o.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+        {/* ── Alerts sidebar (shared component, same data on every page) ── */}
+        <AlertsCenter className="col-span-12 lg:col-span-4" />
       </div>
     </>
   );

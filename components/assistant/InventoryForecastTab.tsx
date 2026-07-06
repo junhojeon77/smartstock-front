@@ -1,54 +1,170 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ForecastWidget } from "@/components/forecast/ForecastWidget";
 import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
-import { Button } from "@/components/ui/Button";
-import {
-  getItemStatus,
-  suggestReorders,
-  STATUS_STYLES,
-} from "@/lib/inventory";
-import type { InventoryItem } from "@/types/index";
+import { ReorderSuggestions } from "@/components/inventory/ReorderSuggestions";
+import { getItemStatus, STATUS_STYLES } from "@/lib/inventory";
+import { configureThreshold } from "@/lib/alerts";
+import { getUser, normalizeRole } from "@/lib/auth";
+import type { ForecastResponse, InventoryItem } from "@/types/index";
 
 type Props = {
   items: InventoryItem[];
   loading: boolean;
   error: string | null;
+  /** Re-fetch inventory (called after thresholds are written). */
+  onRefresh?: () => void;
 };
+
+const RESTOCK_KEY = "smartstock_restock_days";
+/** How often the user restocks; min required = 7-day forecast × days/7. */
+const RESTOCK_CYCLES = [
+  { label: "Daily", days: 1 },
+  { label: "Twice a week", days: 3.5 },
+  { label: "Weekly", days: 7 },
+  { label: "Every two weeks", days: 14 },
+  { label: "Monthly", days: 30 },
+] as const;
+const DEFAULT_RESTOCK_DAYS = 7;
+
+type SortKey = "name" | "qty" | "expiry" | "min";
 
 function cardClass() {
   return "rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5";
 }
 
+function formatExpiry(item: InventoryItem): string {
+  if (!item.expiry_date) return "—";
+  const d = new Date(item.expiry_date);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+}
+
+function expiryMs(item: InventoryItem): number {
+  if (!item.expiry_date) return Infinity; // no expiry sorts last
+  const t = new Date(item.expiry_date).getTime();
+  return Number.isNaN(t) ? Infinity : t;
+}
+
 /**
- * Inventory & Forecasting AI tab. Combines the interactive demand forecast
- * (backend /api/forecast) with live inventory aggregates, AI-derived reorder
- * recommendations, and a status table. Approve / Create PO are template
- * actions that record local acknowledgement only.
+ * Inventory & Forecasting AI tab. The demand forecast (backend /api/forecast)
+ * doubles as each item's minimum quantity required: the inventory table below
+ * derives status from ceil(predicted_demand) when the forecast clears the
+ * user's confidence floor, and "Apply forecast as minimums" persists those
+ * values via the existing threshold endpoint so the whole app follows.
  */
-export function InventoryForecastTab({ items, loading, error }: Props) {
-  const [approved, setApproved] = useState<Set<number>>(new Set());
-  const [ordered, setOrdered] = useState<Set<number>>(new Set());
+export function InventoryForecastTab({ items, loading, error, onRefresh }: Props) {
+  const [forecasts, setForecasts] = useState<Record<
+    number,
+    ForecastResponse | null
+  > | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortAsc, setSortAsc] = useState(true);
+  const [restockDays, setRestockDays] = useState<number>(DEFAULT_RESTOCK_DAYS);
+  const [applyMsg, setApplyMsg] = useState<string | null>(null);
+  const syncing = useRef(false);
 
-  const totalUnits = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
-  const statuses = items.map((i) => getItemStatus(i));
-  const lowStock = statuses.filter(
-    (s) => s === "Low Stock" || s === "Out of Stock",
-  ).length;
-  const expiring = statuses.filter((s) => s === "Expiring Soon").length;
-  const healthy = statuses.filter((s) => s === "Healthy").length;
-  const healthPct = items.length === 0 ? 100 : Math.round((healthy / items.length) * 100);
+  useEffect(() => {
+    const days = Number(localStorage.getItem(RESTOCK_KEY));
+    if (RESTOCK_CYCLES.some((c) => c.days === days)) setRestockDays(days);
+  }, []);
 
-  const reorders = suggestReorders(items);
+  const setCycle = (days: number) => {
+    setRestockDays(days);
+    localStorage.setItem(RESTOCK_KEY, String(days));
+  };
 
-  const summaryRows: [string, string][] = [
-    ["Total stock items", loading ? "—" : String(items.length)],
-    ["Total units on hand", loading ? "—" : totalUnits.toLocaleString()],
-    ["Low / out of stock", loading ? "—" : String(lowStock)],
-    ["Expiring soon", loading ? "—" : String(expiring)],
-    ["Inventory health", loading ? "—" : `${healthPct}%`],
-  ];
+  const canManage = ["Admin", "Manager"].includes(
+    normalizeRole(getUser()?.role) ?? "",
+  );
+
+  /**
+   * Forecast-derived minimum for an item, or null when there's no forecast.
+   * The 7-day forecast is scaled to the restock cycle: enough stock to last
+   * until the next shopping trip.
+   */
+  const forecastMin = (item: InventoryItem): number | null => {
+    const f = forecasts?.[item.item_id];
+    if (!f) return null;
+    return Math.ceil((f.predicted_demand * restockDays) / 7);
+  };
+
+  const rows = useMemo(() => {
+    const enriched = items.map((item) => {
+      const fMin = forecastMin(item);
+      const storedMin = Number(item.minimum_threshold ?? 0) || 0;
+      const min = fMin ?? storedMin;
+      return {
+        item,
+        min,
+        fromForecast: fMin != null,
+        storedMin,
+        status: getItemStatus({ ...item, minimum_threshold: min }),
+      };
+    });
+    const dir = sortAsc ? 1 : -1;
+    return enriched.sort((a, b) => {
+      switch (sortKey) {
+        case "qty":
+          return dir * ((Number(a.item.quantity) || 0) - (Number(b.item.quantity) || 0));
+        case "expiry":
+          return dir * (expiryMs(a.item) - expiryMs(b.item));
+        case "min":
+          return dir * (a.min - b.min);
+        default:
+          return dir * a.item.item_name.localeCompare(b.item.item_name);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, forecasts, restockDays, sortKey, sortAsc]);
+
+  const pendingApply = rows.filter(
+    (r) => r.fromForecast && r.min !== r.storedMin,
+  );
+
+  // Auto-sync: whenever forecasts (or the settings that scale them) produce a
+  // minimum that differs from the stored threshold, persist it. Idempotent —
+  // after the refresh the diff is empty, so the effect settles.
+  useEffect(() => {
+    if (!canManage || syncing.current || pendingApply.length === 0) return;
+    syncing.current = true;
+    Promise.all(
+      pendingApply.map((r) => configureThreshold(r.item.item_id, r.min)),
+    )
+      .then(() => {
+        setApplyMsg(
+          `Auto-updated ${pendingApply.length} minimum(s) from forecast.`,
+        );
+        onRefresh?.();
+      })
+      .catch((e: unknown) => {
+        setApplyMsg(
+          e instanceof Error ? e.message : "Failed to update minimums.",
+        );
+      })
+      .finally(() => {
+        syncing.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingApply.map((r) => `${r.item.item_id}:${r.min}`).join(",")]);
+
+  const sortHeader = (key: SortKey, label: string, right = false) => (
+    <th className={`px-4 py-2.5 font-medium ${right ? "text-right" : "text-left"}`}>
+      <button
+        onClick={() => {
+          if (sortKey === key) setSortAsc(!sortAsc);
+          else {
+            setSortKey(key);
+            setSortAsc(true);
+          }
+        }}
+        className="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-slate-300"
+      >
+        {label}
+        {sortKey === key && <span>{sortAsc ? "▲" : "▼"}</span>}
+      </button>
+    </th>
+  );
 
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
@@ -59,157 +175,130 @@ export function InventoryForecastTab({ items, loading, error }: Props) {
       )}
 
       {/* Interactive demand forecast (backend /api/forecast) */}
-      <ForecastWidget items={items} />
+      <ForecastWidget
+        items={items}
+        onForecasts={setForecasts}
+        scale={restockDays / 7}
+        settings={
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Restock
+            </span>
+            <select
+              value={restockDays}
+              onChange={(e) => setCycle(Number(e.target.value))}
+              className="rounded-md border border-slate-700/60 bg-slate-800/60 px-2 py-1.5 text-sm text-slate-200 focus:border-cyan-500/50 focus:outline-none"
+            >
+              {RESTOCK_CYCLES.map((c) => (
+                <option key={c.days} value={c.days}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Current inventory status (live aggregates) */}
-        <div className={cardClass()}>
-          <h2 className="mb-4 text-sm font-semibold text-slate-200">
+      {/* Current inventory — scrollable, sortable, forecast-driven minimums */}
+      <div className={cardClass()}>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-200">
             Current Inventory Status
           </h2>
-          <dl className="flex flex-col divide-y divide-slate-800/60">
-            {summaryRows.map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between py-2.5"
-              >
-                <dt className="text-sm text-slate-400">{label}</dt>
-                <dd className="text-sm font-semibold tabular-nums text-slate-100">
-                  {value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          {canManage && (
+            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-400">
+              Minimums auto-sync with forecast
+            </span>
+          )}
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Min required = AI-forecasted demand scaled to your{" "}
+          {RESTOCK_CYCLES.find((c) => c.days === restockDays)?.label.toLowerCase()}{" "}
+          restock cycle; items without sales history use their stored minimum.
+        </p>
+        {applyMsg && (
+          <p className="mb-3 text-xs text-emerald-400">{applyMsg}</p>
+        )}
+
+        <div className="max-h-96 overflow-y-auto overflow-x-auto rounded-lg border border-slate-800/70">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm">
+              <tr className="border-b border-slate-800/70 text-xs text-slate-500">
+                {sortHeader("name", "Item")}
+                {sortHeader("qty", "Qty", true)}
+                {sortHeader("expiry", "Expiry", true)}
+                {sortHeader("min", "Min required", true)}
+                <th className="px-4 py-2.5 text-right font-medium uppercase tracking-wide">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-xs text-slate-600">
+                    Loading…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-sm text-slate-600">
+                    No inventory items found.
+                  </td>
+                </tr>
+              ) : (
+                rows.map(({ item, min, fromForecast, storedMin, status }) => (
+                  <tr
+                    key={item.item_id}
+                    className="border-b border-slate-800/40 last:border-0"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-200">
+                      {item.item_name}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-300">
+                      {item.quantity}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-400">
+                      {formatExpiry(item)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-300">
+                      {min}
+                      <span className="ml-1.5 text-[11px] text-slate-500">
+                        {fromForecast
+                          ? min !== storedMin
+                            ? `forecast · stored: ${storedMin}`
+                            : "forecast"
+                          : "stored"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* AI procurement recommendations — live, explainable, overridable */}
+        <ReorderSuggestions items={items} loading={loading} />
 
         {/* Demand trend chart */}
         <div className={cardClass()}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">Demand Trend</h2>
             <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
-              12-month
+              Demo data
             </span>
           </div>
           <WasteTrendChart />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* AI procurement recommendations (live) */}
-        <div className={cardClass()}>
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-            AI Procurement Recommendations
-          </h2>
-          {reorders.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-600">
-              {loading ? "Loading…" : "No reorders needed — stock looks healthy."}
-            </p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-800/60 text-xs text-slate-600">
-                  <th className="pb-2.5 text-left font-medium">Item</th>
-                  <th className="pb-2.5 text-right font-medium">Qty</th>
-                  <th className="pb-2.5 text-right font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reorders.map(({ item, suggestedQty }) => (
-                  <tr
-                    key={item.item_id}
-                    className="border-b border-slate-800/40 last:border-0"
-                  >
-                    <td className="py-3 text-slate-300">{item.item_name}</td>
-                    <td className="py-3 text-right tabular-nums text-slate-400">
-                      {suggestedQty}
-                    </td>
-                    <td className="py-3 text-right">
-                      <Button
-                        variant={approved.has(item.item_id) ? "secondary" : "primary"}
-                        className="px-2.5 py-1 text-xs"
-                        disabled={approved.has(item.item_id)}
-                        onClick={() =>
-                          setApproved((prev) =>
-                            new Set(prev).add(item.item_id),
-                          )
-                        }
-                      >
-                        {approved.has(item.item_id) ? "Approved ✓" : "Approve"}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Inventory status table (live) with Create PO */}
-        <div className={cardClass()}>
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-            Inventory Status
-          </h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800/60 text-xs text-slate-600">
-                <th className="pb-2.5 text-left font-medium">Item</th>
-                <th className="pb-2.5 text-left font-medium">Status</th>
-                <th className="pb-2.5 text-right font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={3} className="py-8 text-center text-xs text-slate-600">
-                    Loading…
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="py-8 text-center text-sm text-slate-600">
-                    No inventory items found.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => {
-                  const status = getItemStatus(item);
-                  return (
-                    <tr
-                      key={item.item_id}
-                      className="border-b border-slate-800/40 last:border-0"
-                    >
-                      <td className="py-3 font-medium text-slate-200">
-                        {item.item_name}
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          className="px-2.5 py-1 text-xs"
-                          disabled={ordered.has(item.item_id)}
-                          onClick={() =>
-                            setOrdered((prev) =>
-                              new Set(prev).add(item.item_id),
-                            )
-                          }
-                        >
-                          {ordered.has(item.item_id) ? "PO Created" : "Create PO"}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

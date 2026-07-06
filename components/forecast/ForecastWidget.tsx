@@ -22,6 +22,15 @@ type ItemForecast = {
 type Props = {
   /** Items to forecast. Self-fetches GET /api/inventory when omitted. */
   items?: InventoryItem[];
+  /** Reports the fetched forecasts keyed by item_id (null = no history). */
+  onForecasts?: (map: Record<number, ForecastResponse | null>) => void;
+  /** Optional settings control(s) rendered in the card header. */
+  settings?: React.ReactNode;
+  /**
+   * Scales the displayed demand from the model's 7-day horizon to the user's
+   * restock cycle (e.g. 0.5 for twice a week, ~4.3 for monthly).
+   */
+  scale?: number;
 };
 
 /**
@@ -29,10 +38,20 @@ type Props = {
  * /api/forecast) and lists the predictions with a confidence badge. Items with
  * no stored sales history return a 404 and are shown as unavailable.
  */
-export function ForecastWidget({ items: itemsProp }: Props = {}) {
+export function ForecastWidget({
+  items: itemsProp,
+  onForecasts,
+  settings,
+  scale = 1,
+}: Props = {}) {
   const [rows, setRows] = useState<ItemForecast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Forecasts depend only on which items exist (the model reads sales
+  // history), so refetch only when the id set changes — not when a threshold
+  // sync or settings change hands us a new array of the same items.
+  const idsKey = itemsProp?.map((i) => i.item_id).join(",") ?? "self-fetch";
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +78,14 @@ export function ForecastWidget({ items: itemsProp }: Props = {}) {
             }
           }),
         );
-        if (!cancelled) setRows(settled);
+        if (!cancelled) {
+          setRows(settled);
+          onForecasts?.(
+            Object.fromEntries(
+              settled.map((r) => [r.item.item_id, r.forecast ?? null]),
+            ),
+          );
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Forecast failed.");
@@ -73,22 +99,29 @@ export function ForecastWidget({ items: itemsProp }: Props = {}) {
     return () => {
       cancelled = true;
     };
-  }, [itemsProp]);
+    // onForecasts must be referentially stable (a setState or useCallback).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, onForecasts]);
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-100">
             Demand Forecast
           </h2>
           <p className="text-sm text-slate-500">
-            Predicted demand per item for the next 7 days.
+            Each item&apos;s expected demand, learned from its own sales
+            history and sized to your restock cycle — this sets its minimum
+            stock level automatically.
           </p>
         </div>
-        <span className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-cyan-400">
-          AI
-        </span>
+        <div className="flex items-center gap-2.5">
+          {settings}
+          <span className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-cyan-400">
+            AI
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -136,14 +169,15 @@ export function ForecastWidget({ items: itemsProp }: Props = {}) {
                     {forecast ? (
                       <>
                         <td className="px-4 py-3 text-right tabular-nums font-semibold text-cyan-400">
-                          {forecast.predicted_demand}
+                          {Math.round(forecast.predicted_demand * scale * 100) / 100}
                           <span className="ml-1 text-xs font-normal text-slate-500">
                             units
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${confidenceStyles[label]}`}
+                            title={`The model reproduced ${item.item_name}'s past sales with ~${pct}% accuracy — its 7-day prediction inherits that reliability.`}
+                            className={`cursor-help rounded-full px-2 py-0.5 text-xs font-medium ${confidenceStyles[label]}`}
                           >
                             {label} · {pct}%
                           </span>

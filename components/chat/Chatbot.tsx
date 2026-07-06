@@ -8,24 +8,25 @@ import type { ChatMessage } from "@/types/index";
 
 const SUGGESTIONS = [
   "Which items are running low?",
-  "When should I reorder tomatoes?",
-  "Summarize this week's demand.",
+  "What's expiring soon?",
+  "Who's the cheapest supplier for Olive Oil?",
 ];
 
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your SmartStock assistant. Ask me about stock levels, demand, or reorder timing.",
+    "Hi! Ask me about stock levels, expiry dates, suppliers, sales trends, or waste.",
 };
 
 let counter = 0;
 const nextId = () => `msg-${counter++}`;
 
 /**
- * AI chatbot template. Sends user messages to the backend /api/chat endpoint
- * (currently a mock) via sendChatMessage, which falls back to a canned reply
- * offline so the thread always responds.
+ * AI chatbot. Sends user messages to the backend /api/chat endpoint (a
+ * rule-based intent layer over live inventory data, with a model fallback)
+ * via sendChatMessage, which falls back to an "unavailable" message if the
+ * backend can't be reached.
  */
 export function Chatbot() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
@@ -69,7 +70,9 @@ export function Chatbot() {
     <Card className="flex h-[32rem] flex-col">
       <div className="border-b border-slate-800/70 px-5 py-3">
         <h2 className="text-lg font-semibold text-slate-100">AI Assistant</h2>
-        <p className="text-xs text-slate-500">Template preview · mock replies</p>
+        <p className="text-xs text-slate-500">
+          Answers from your live inventory, suppliers, and sales history.
+        </p>
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
