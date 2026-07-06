@@ -26,9 +26,7 @@ export function HistoricalTrendsTab() {
           <h2 className="text-sm font-semibold text-slate-200">
             Demand & Waste Trend
           </h2>
-          <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
-            Template data
-          </span>
+  
         </div>
         <WasteTrendChart />
       </div>
