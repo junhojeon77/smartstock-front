@@ -95,19 +95,18 @@ export function Chatbot() {
         <div ref={endRef} />
       </div>
 
-      {messages.length <= 1 && (
-        <div className="flex flex-wrap gap-2 px-5 pb-3">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => void send(s)}
-              className="rounded-full border border-slate-700/70 bg-slate-900/40 px-3 py-1 text-xs text-slate-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2 px-5 pb-3">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            onClick={() => void send(s)}
+            disabled={sending}
+            className="rounded-full border border-slate-700/70 bg-slate-900/40 px-3 py-1 text-xs text-slate-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-400 disabled:opacity-50"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -118,7 +117,7 @@ export function Chatbot() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your inventory…"
           className="flex-1 rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-        />
+        />  
         <Button type="submit" disabled={sending || input.trim() === ""}>
           Send
         </Button>
