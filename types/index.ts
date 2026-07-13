@@ -97,6 +97,18 @@ export type SupplierOffer = {
   is_lowest: boolean;
 };
 
+/** One waste log entry, from GET /api/waste (newest first). */
+export type WasteEntry = {
+  log_id: number;
+  item_id: number;
+  item_name: string;
+  quantity: number;
+  reason: string;
+  logged_by: string;
+  /** ISO timestamp stamped by the backend. */
+  timestamp: string;
+};
+
 /** Shape returned by GET /api/inventory/<id>/prices. Offers are sorted cheapest first. */
 export type ItemPricesResponse = {
   item_id: number;

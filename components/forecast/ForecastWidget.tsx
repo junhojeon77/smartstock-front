@@ -139,9 +139,9 @@ export function ForecastWidget({
       )}
 
       {!loading && rows.length > 0 && (
-        <div className="mt-5 overflow-hidden rounded-lg border border-slate-800/70">
+        <div className="mt-5 max-h-60 overflow-y-auto rounded-lg border border-slate-800/70">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm">
               <tr className="border-b border-slate-800/70 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-2.5 font-medium">Item</th>
                 <th className="px-4 py-2.5 text-right font-medium">

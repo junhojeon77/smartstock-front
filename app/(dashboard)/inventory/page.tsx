@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
+import { LogWasteForm } from "@/components/waste/LogWasteForm";
 import { apiFetch } from "@/lib/api";
 import { configureThreshold } from "@/lib/alerts";
 import { getUser, normalizeRole } from "@/lib/auth";
@@ -40,6 +41,14 @@ function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4 w-4">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function WasteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <path d="M4 19h16M6 19V9a6 6 0 0112 0v10M10 5V3h4v2" />
     </svg>
   );
 }
@@ -83,6 +92,9 @@ export default function InventoryPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  // Per-row waste logging (POST /api/waste + quantity decrement)
+  const [wasteItem, setWasteItem] = useState<InventoryItem | null>(null);
 
   // Inline minimum-threshold editing (dedicated /threshold endpoint)
   const [thresholdEditId, setThresholdEditId] = useState<number | null>(null);
@@ -462,6 +474,35 @@ export default function InventoryPage() {
           </div>
         )}
 
+        {/* ── Log waste panel ── */}
+        {wasteItem && (
+          <div className="mb-5 rounded-2xl border border-slate-700/60 bg-slate-900/50 backdrop-blur-sm p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold text-slate-100">
+                Log Waste — {wasteItem.item_name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setWasteItem(null)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
+                aria-label="Close waste form"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <LogWasteForm
+              items={items}
+              presetItem={wasteItem}
+              onLogged={() => {
+                setWasteItem(null);
+                loadInventory();
+              }}
+            />
+          </div>
+        )}
+
         {/* ── Loading state ── */}
         {loading && (
           <div className="flex items-center justify-center gap-3 rounded-2xl border border-slate-800/60 bg-slate-900/30 py-16">
@@ -600,6 +641,14 @@ export default function InventoryPage() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => setWasteItem(item)}
+                              className="rounded-lg p-2 text-slate-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all duration-150"
+                              aria-label={`Log waste for ${item.item_name}`}
+                              title="Log waste"
+                            >
+                              <WasteIcon />
+                            </button>
                             {canEdit && (
                               <button
                                 onClick={() => openEdit(item)}
@@ -617,9 +666,6 @@ export default function InventoryPage() {
                               >
                                 <TrashIcon />
                               </button>
-                            )}
-                            {!canEdit && !canDelete && (
-                              <span className="text-xs text-slate-700 px-2">View only</span>
                             )}
                           </div>
                         </td>

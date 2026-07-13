@@ -7,6 +7,8 @@ import { AlertsCenter } from "@/components/alerts/AlertsCenter";
 import { ReorderSuggestions } from "@/components/inventory/ReorderSuggestions";
 import { apiFetch } from "@/lib/api";
 import { EXPIRY_WARNING_DAYS } from "@/lib/alerts";
+import { bucketWasteByMonth, fetchWasteLog } from "@/lib/waste";
+import type { WasteEntry } from "@/types/index";
 import {
   getItemStatus,
   STATUS_STYLES,
@@ -26,6 +28,7 @@ function StatusBadge({ status }: { status: ItemStatus }) {
 
 export default function DashboardPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [waste, setWaste] = useState<WasteEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +39,9 @@ export default function DashboardPage() {
         setError(err instanceof Error ? err.message : "Failed to load inventory");
       })
       .finally(() => setLoading(false));
+    // ponytail: waste trend is decorative here — a failed fetch just leaves
+    // the chart in its empty state instead of raising the page error banner.
+    fetchWasteLog().then(setWaste).catch(() => {});
   }, []);
 
   // ── Derived inventory KPIs ──────────────────────────────────────────────────
@@ -123,15 +129,10 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Monthly Waste Trend — mock */}
+          {/* Monthly Waste Trend — live waste log */}
           <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Monthly Waste Trend</h2>
-              <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
-                Demo data
-              </span>
-            </div>
-            <WasteTrendChart />
+            <h2 className="mb-4 text-sm font-semibold text-slate-200">Monthly Waste Trend</h2>
+            <WasteTrendChart data={bucketWasteByMonth(waste)} />
           </div>
 
           {/* Bottom two-column section */}

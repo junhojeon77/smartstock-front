@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ForecastWidget } from "@/components/forecast/ForecastWidget";
-import { WasteTrendChart } from "@/components/charts/WasteTrendChart";
 import { ReorderSuggestions } from "@/components/inventory/ReorderSuggestions";
 import { getItemStatus, STATUS_STYLES } from "@/lib/inventory";
 import { configureThreshold } from "@/lib/alerts";
@@ -261,7 +260,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
           <p className="mb-3 text-xs text-emerald-400">{applyMsg}</p>
         )}
 
-        <div className="max-h-96 overflow-y-auto overflow-x-auto rounded-lg border border-slate-800/70">
+        <div className="max-h-60 overflow-y-auto overflow-x-auto rounded-lg border border-slate-800/70">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm">
               <tr className="border-b border-slate-800/70 text-xs text-slate-500">
@@ -327,21 +326,8 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* AI procurement recommendations — live, explainable, overridable */}
-        <ReorderSuggestions items={items} loading={loading} />
-
-        {/* Demand trend chart */}
-        <div className={cardClass()}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">Demand Trend</h2>
-            <span className="rounded-full border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-500">
-              Demo data
-            </span>
-          </div>
-          <WasteTrendChart />
-        </div>
-      </div>
+      {/* AI procurement recommendations — live, explainable, overridable */}
+      <ReorderSuggestions items={items} loading={loading} />
     </div>
   );
 }

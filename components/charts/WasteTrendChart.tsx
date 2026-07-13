@@ -1,24 +1,20 @@
-const data = [
-  { label: "Jan", value: 180 },
-  { label: "Feb", value: 220 },
-  { label: "Mar", value: 200 },
-  { label: "Apr", value: 260 },
-  { label: "May", value: 240 },
-  { label: "Jun", value: 310 },
-  { label: "Jul", value: 280 },
-  { label: "Aug", value: 350 },
-  { label: "Sep", value: 320 },
-  { label: "Oct", value: 380 },
-  { label: "Nov", value: 340 },
-  { label: "Dec", value: 410 },
-];
+export type WasteChartPoint = { label: string; value: number };
 
-export function WasteTrendChart() {
+export function WasteTrendChart({ data }: { data: WasteChartPoint[] }) {
+  const max = Math.max(...data.map((d) => d.value));
+
+  if (data.length < 2 || max <= 0) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-slate-600">
+        Not enough waste data yet — log discarded stock to build the trend.
+      </div>
+    );
+  }
+
   const w = 800;
   const h = 220;
   const padX = 30;
   const padY = 20;
-  const max = Math.max(...data.map((d) => d.value));
   const stepX = (w - padX * 2) / (data.length - 1);
 
   const points = data.map((d, i) => {
