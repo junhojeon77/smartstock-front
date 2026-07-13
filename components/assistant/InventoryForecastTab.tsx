@@ -18,6 +18,7 @@ type Props = {
 };
 
 const RESTOCK_KEY = "smartstock_restock_days";
+const AUTOSYNC_KEY = "smartstock_autosync";
 /** How often the user restocks; min required = 7-day forecast × days/7. */
 const RESTOCK_CYCLES = [
   { label: "Daily", days: 1 },
@@ -61,17 +62,28 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
   const [restockDays, setRestockDays] = useState<number>(DEFAULT_RESTOCK_DAYS);
+  const [autoSync, setAutoSync] = useState(true);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const syncing = useRef(false);
 
   useEffect(() => {
     const days = Number(localStorage.getItem(RESTOCK_KEY));
     if (RESTOCK_CYCLES.some((c) => c.days === days)) setRestockDays(days);
+    if (localStorage.getItem(AUTOSYNC_KEY) === "off") setAutoSync(false);
   }, []);
 
   const setCycle = (days: number) => {
     setRestockDays(days);
     localStorage.setItem(RESTOCK_KEY, String(days));
+  };
+
+  const toggleAutoSync = () => {
+    setAutoSync((on) => {
+      const next = !on;
+      localStorage.setItem(AUTOSYNC_KEY, next ? "on" : "off");
+      if (!next) setApplyMsg(null);
+      return next;
+    });
   };
 
   const canManage = ["Admin", "Manager"].includes(
@@ -126,7 +138,8 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
   // minimum that differs from the stored threshold, persist it. Idempotent —
   // after the refresh the diff is empty, so the effect settles.
   useEffect(() => {
-    if (!canManage || syncing.current || pendingApply.length === 0) return;
+    if (!autoSync || !canManage || syncing.current || pendingApply.length === 0)
+      return;
     syncing.current = true;
     Promise.all(
       pendingApply.map((r) => configureThreshold(r.item.item_id, r.min)),
@@ -146,7 +159,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
         syncing.current = false;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingApply.map((r) => `${r.item.item_id}:${r.min}`).join(",")]);
+  }, [pendingApply.map((r) => `${r.item.item_id}:${r.min}`).join(","), autoSync]);
 
   const sortHeader = (key: SortKey, label: string, right = false) => (
     <th className={`px-4 py-2.5 font-medium ${right ? "text-right" : "text-left"}`}>
@@ -206,15 +219,43 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
             Current Inventory Status
           </h2>
           {canManage && (
-            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-400">
-              Minimums auto-sync with forecast
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full border px-2.5 py-1 text-xs ${
+                  autoSync
+                    ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-400"
+                    : "border-slate-700/60 bg-slate-800/60 text-slate-500"
+                }`}
+              >
+                Minimums auto-sync with forecast
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoSync}
+                onClick={toggleAutoSync}
+                title={autoSync ? "Turn auto-sync off" : "Turn auto-sync on"}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  autoSync ? "bg-cyan-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                    autoSync ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
           )}
         </div>
         <p className="mb-3 text-xs text-slate-500">
           Min required = AI-forecasted demand scaled to your{" "}
           {RESTOCK_CYCLES.find((c) => c.days === restockDays)?.label.toLowerCase()}{" "}
           restock cycle; items without sales history use their stored minimum.
+          {canManage &&
+            (autoSync
+              ? " These values are saved as each item's threshold automatically."
+              : " Auto-sync is off — these are shown here but not saved as thresholds.")}
         </p>
         {applyMsg && (
           <p className="mb-3 text-xs text-emerald-400">{applyMsg}</p>
