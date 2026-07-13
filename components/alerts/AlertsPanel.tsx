@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertNotification } from "./AlertNotification";
 import { fetchInventoryAlerts, summarizeAlerts } from "@/lib/alerts";
@@ -24,6 +24,16 @@ export function AlertsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canAct, setCanAct] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [listMaxH, setListMaxH] = useState<number>();
+
+  // Cap the list at the bottom edge of the 5th card so exactly 5 alerts show
+  // before scrolling, regardless of message wrapping / action-button height.
+  // ponytail: measured once per alert set; re-measure on resize if wrapping shifts matter
+  useLayoutEffect(() => {
+    const fifth = listRef.current?.children[4] as HTMLElement | undefined;
+    setListMaxH(fifth ? fifth.offsetTop + fifth.offsetHeight : undefined);
+  }, [alerts]);
 
   useEffect(() => {
     const role = normalizeRole(getUser()?.role);
@@ -95,10 +105,11 @@ export function AlertsPanel() {
         )}
       </div>
 
-      {/* ponytail: ~40rem ≈ 5 alert cards; tune if card layout changes */}
       <div
-        className={`flex flex-col gap-4 ${
-          alerts.length > 5 ? "max-h-[40rem] overflow-y-auto pr-1" : ""
+        ref={listRef}
+        style={alerts.length > 5 ? { maxHeight: listMaxH } : undefined}
+        className={`relative flex flex-col gap-4 ${
+          alerts.length > 5 ? "overflow-y-auto pr-1" : ""
         }`}
       >
         {alerts.map((alert) => (
