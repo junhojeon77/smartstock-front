@@ -111,7 +111,7 @@ export function ReorderSuggestions({ items, loading }: Props) {
                 : "No reorders needed — stock looks healthy."}
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-slate-800/60">
+        <ul className="flex max-h-96 flex-col divide-y divide-slate-800/60 overflow-y-auto">
           {visible.map(({ item, suggestedQty, reason, status, severity }) => {
             const value = overrides[item.item_id] ?? suggestedQty;
             const overridden = value !== suggestedQty;

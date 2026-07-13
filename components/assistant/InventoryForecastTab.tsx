@@ -103,7 +103,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
 
   const rows = useMemo(() => {
     const enriched = items.map((item) => {
-      const fMin = forecastMin(item);
+      const fMin = autoSync ? forecastMin(item) : null;
       const storedMin = Number(item.minimum_threshold ?? 0) || 0;
       const min = fMin ?? storedMin;
       return {
@@ -128,7 +128,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, forecasts, restockDays, sortKey, sortAsc]);
+  }, [items, forecasts, restockDays, sortKey, sortAsc, autoSync]);
 
   const pendingApply = rows.filter(
     (r) => r.fromForecast && r.min !== r.storedMin,
@@ -255,7 +255,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
           {canManage &&
             (autoSync
               ? " These values are saved as each item's threshold automatically."
-              : " Auto-sync is off — these are shown here but not saved as thresholds.")}
+              : " Auto-sync is off — showing each item's stored minimum, unchanged by the forecast.")}
         </p>
         {applyMsg && (
           <p className="mb-3 text-xs text-emerald-400">{applyMsg}</p>
