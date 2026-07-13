@@ -95,14 +95,21 @@ export function AlertsPanel() {
         )}
       </div>
 
-      {alerts.map((alert) => (
-        <AlertNotification
-          key={`${alert.type}-${alert.item_id}`}
-          alert={alert}
-          actionLabel={canAct ? ACTION_LABEL[alert.type] : undefined}
-          onAction={canAct ? handleAction : undefined}
-        />
-      ))}
+      {/* ponytail: ~40rem ≈ 5 alert cards; tune if card layout changes */}
+      <div
+        className={`flex flex-col gap-4 ${
+          alerts.length > 5 ? "max-h-[40rem] overflow-y-auto pr-1" : ""
+        }`}
+      >
+        {alerts.map((alert) => (
+          <AlertNotification
+            key={`${alert.type}-${alert.item_id}`}
+            alert={alert}
+            actionLabel={canAct ? ACTION_LABEL[alert.type] : undefined}
+            onAction={canAct ? handleAction : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 }
