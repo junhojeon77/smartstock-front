@@ -6,8 +6,9 @@ import { suggestReorders, STATUS_STYLES } from "@/lib/inventory";
 import { Button } from "@/components/ui/Button";
 import type { InventoryItem } from "@/types/index";
 
-const DISMISSED_KEY = "smartstock_reorder_dismissed";
-const OVERRIDES_KEY = "smartstock_reorder_overrides";
+// Exported so the Settings page can reset these over shared state.
+export const DISMISSED_KEY = "smartstock_reorder_dismissed";
+export const OVERRIDES_KEY = "smartstock_reorder_overrides";
 
 function readJson<T>(key: string, fallback: T): T {
   try {

@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { PriceComparison } from "@/components/sourcing/PriceComparison";
 import { SupplierDirectory } from "@/components/sourcing/SupplierDirectory";
-import { Card } from "@/components/ui/Card";
 
-const TABS = ["Supplier Comparison", "Price History", "Supplier Directory"] as const;
+const TABS = ["Supplier Comparison", "Supplier Directory"] as const;
 type Tab = (typeof TABS)[number];
 
 /** Tabbed Smart Sourcing view. Comparison and Directory run on real API data. */
@@ -32,22 +31,6 @@ export function SmartSourcing() {
 
       {tab === "Supplier Comparison" && <PriceComparison />}
       {tab === "Supplier Directory" && <SupplierDirectory />}
-      {tab === "Price History" && (
-        <Card className="p-5">
-          <h2 className="text-lg font-semibold text-slate-100">Price History</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Price trends over time.
-          </p>
-          {/* ponytail: needs a backend endpoint that returns historical prices.
-              The current API stores only one current price + timestamp per
-              offer, so there is no real series to chart yet. */}
-          <p className="mt-6 rounded-lg border border-slate-800/70 bg-slate-900/40 p-4 text-sm text-slate-400">
-            Historical price trends aren&apos;t available yet — the backend
-            currently stores only each supplier&apos;s latest price. Add a
-            prices-over-time endpoint to chart this tab.
-          </p>
-        </Card>
-      )}
     </div>
   );
 }

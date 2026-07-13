@@ -16,17 +16,18 @@ type Props = {
   onRefresh?: () => void;
 };
 
-const RESTOCK_KEY = "smartstock_restock_days";
-const AUTOSYNC_KEY = "smartstock_autosync";
+// Exported so the Settings page can offer the same controls over shared state.
+export const RESTOCK_KEY = "smartstock_restock_days";
+export const AUTOSYNC_KEY = "smartstock_autosync";
 /** How often the user restocks; min required = 7-day forecast × days/7. */
-const RESTOCK_CYCLES = [
+export const RESTOCK_CYCLES = [
   { label: "Daily", days: 1 },
   { label: "Twice a week", days: 3.5 },
   { label: "Weekly", days: 7 },
   { label: "Every two weeks", days: 14 },
   { label: "Monthly", days: 30 },
 ] as const;
-const DEFAULT_RESTOCK_DAYS = 7;
+export const DEFAULT_RESTOCK_DAYS = 7;
 
 type SortKey = "name" | "qty" | "expiry" | "min";
 
