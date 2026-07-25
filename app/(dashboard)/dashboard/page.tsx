@@ -146,8 +146,9 @@ export default function DashboardPage() {
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
                 Inventory Status
               </h2>
+              <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-slate-900">
                   <tr className="text-xs text-slate-600 border-b border-slate-800/60">
                     <th className="pb-2.5 text-left font-medium">Item</th>
                     <th className="pb-2.5 text-left font-medium">Qty</th>
@@ -186,6 +187,7 @@ export default function DashboardPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>

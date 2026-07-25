@@ -52,7 +52,10 @@ html.dark {
 html.light {
   color-scheme: light;
 
-  /* Mirrored neutral ramp: slate-X -> the original slate-(1000 - X). */
+  /* Mirrored neutral ramp: slate-X -> the original slate-(1000 - X).
+     Exception: the two lightest surface tokens are nudged so the page reads as
+     a soft light gray with near-white cards on top (instead of everything
+     fully white, which washed out the existing accent colors). */
   --slate-50: 2 6 23;
   --slate-100: 15 23 42;
   --slate-200: 30 41 59;
@@ -62,8 +65,8 @@ html.light {
   --slate-600: 148 163 184;
   --slate-700: 203 213 225;
   --slate-800: 226 232 240;
-  --slate-900: 241 245 249;
-  --slate-950: 248 250 252;
+  --slate-900: 248 250 252; /* cards -> near white */
+  --slate-950: 226 232 240; /* page bg -> light gray (slate-200) */
 
   /* Accent foreground shades darkened for contrast; 500 stays vivid for
      solid buttons and tint chips. */

@@ -24,7 +24,14 @@ export function LogWasteForm({ items, presetItem, onLogged }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Searchable item picker (non-preset case): type to filter, list caps at ~5 rows.
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
   const item = presetItem ?? items.find((i) => String(i.item_id) === itemId);
+  const matches = query.trim()
+    ? items.filter((i) => i.item_name.toLowerCase().includes(query.trim().toLowerCase()))
+    : items;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,21 +75,49 @@ export function LogWasteForm({ items, presetItem, onLogged }: Props) {
               {presetItem.item_name}
             </div>
           ) : (
-            <select
-              required
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              className={inputCls}
-            >
-              <option value="" disabled>
-                Select an item…
-              </option>
-              {items.map((i) => (
-                <option key={i.item_id} value={i.item_id}>
-                  {i.item_name} (stock: {i.quantity})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                type="text"
+                value={open ? query : item ? item.item_name : query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setItemId("");
+                  setOpen(true);
+                }}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setTimeout(() => setOpen(false), 120)}
+                placeholder="Search for an item…"
+                className={inputCls}
+              />
+              {open && (
+                <ul className="absolute bottom-full z-30 mb-1 max-h-[11.5rem] w-full overflow-y-auto rounded-xl border border-slate-700/60 bg-slate-800 shadow-lg">
+                  {matches.length === 0 ? (
+                    <li className="px-3 py-2.5 text-sm text-slate-500">No items match.</li>
+                  ) : (
+                    matches.map((i) => (
+                      <li key={i.item_id}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setItemId(String(i.item_id));
+                            setQuery("");
+                            setOpen(false);
+                          }}
+                          className={
+                            "block w-full px-3 py-2.5 text-left text-sm text-slate-100 hover:bg-slate-700/60 transition-colors " +
+                            (String(i.item_id) === itemId ? "bg-slate-700/40" : "")
+                          }
+                        >
+                          {i.item_name}{" "}
+                          <span className="text-slate-500">(stock: {i.quantity})</span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
           )}
         </div>
 

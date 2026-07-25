@@ -240,10 +240,10 @@ function AccountsList({
       ) : users.length === 0 && !error ? (
         <div className="py-12 text-center text-sm text-slate-600">No accounts found.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-x-auto overflow-y-auto">
           <table className="w-full min-w-[520px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-800/60 bg-slate-900/50">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-slate-800/60 bg-slate-900">
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Email</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Role</th>

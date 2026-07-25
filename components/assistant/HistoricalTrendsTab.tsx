@@ -110,9 +110,9 @@ export function HistoricalTrendsTab() {
             No waste logged yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-80 overflow-x-auto overflow-y-auto">
             <table className="w-full min-w-[520px] text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-slate-900">
                 <tr className="border-b border-slate-800/60 text-xs text-slate-600">
                   <th className="pb-2.5 text-left font-medium">Date</th>
                   <th className="pb-2.5 text-left font-medium">Item</th>

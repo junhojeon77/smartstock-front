@@ -84,6 +84,8 @@ export default function InventoryPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"none" | "qty" | "min">("none");
+  const [sortAsc, setSortAsc] = useState(true);
 
   const [formMode, setFormMode] = useState<"hidden" | "add" | "edit">("hidden");
   const [formValues, setFormValues] = useState<FormValues>(EMPTY_FORM);
@@ -134,6 +136,25 @@ export default function InventoryPage() {
       item.item_name.toLowerCase().includes(search.toLowerCase()) ||
       item.category.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const sorted =
+    sortKey === "none"
+      ? filtered
+      : [...filtered].sort((a, b) => {
+          const dir = sortAsc ? 1 : -1;
+          const av = sortKey === "qty" ? a.quantity : a.minimum_threshold ?? 0;
+          const bv = sortKey === "qty" ? b.quantity : b.minimum_threshold ?? 0;
+          return dir * (av - bv);
+        });
+
+  // Dropdown <-> clickable-header shared state
+  function toggleSort(key: "qty" | "min") {
+    if (sortKey === key) setSortAsc((asc) => !asc);
+    else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  }
 
   // ── Form helpers ───────────────────────────────────────────────────────────
 
@@ -302,6 +323,28 @@ export default function InventoryPage() {
               className="w-full rounded-xl border border-slate-700/60 bg-slate-900/50 pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150"
             />
           </div>
+
+          <select
+            aria-label="Sort items"
+            value={sortKey === "none" ? "none" : `${sortKey}-${sortAsc ? "asc" : "desc"}`}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "none") {
+                setSortKey("none");
+                return;
+              }
+              const [key, dir] = v.split("-") as ["qty" | "min", "asc" | "desc"];
+              setSortKey(key);
+              setSortAsc(dir === "asc");
+            }}
+            className="w-full sm:w-auto shrink-0 rounded-xl border border-slate-700/60 bg-slate-900/50 px-4 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150"
+          >
+            <option value="none">Sort: Default</option>
+            <option value="qty-asc">Quantity: Low → High</option>
+            <option value="qty-desc">Quantity: High → Low</option>
+            <option value="min-asc">Min: Low → High</option>
+            <option value="min-desc">Min: High → Low</option>
+          </select>
 
           {canAdd && (
             <button
@@ -513,10 +556,10 @@ export default function InventoryPage() {
 
         {/* ── Table (horizontal scroll on mobile) ── */}
         {!loading && (
-          <div className="overflow-x-auto rounded-2xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+          <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-2xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
             <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-slate-800/60 bg-slate-900/50">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-slate-800/60 bg-slate-900">
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Item Name
                   </th>
@@ -524,10 +567,24 @@ export default function InventoryPage() {
                     Category
                   </th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Quantity
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("qty")}
+                      className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-300 transition-colors"
+                    >
+                      Quantity
+                      {sortKey === "qty" && <span>{sortAsc ? "▲" : "▼"}</span>}
+                    </button>
                   </th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Min
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("min")}
+                      className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-300 transition-colors"
+                    >
+                      Min
+                      {sortKey === "min" && <span>{sortAsc ? "▲" : "▼"}</span>}
+                    </button>
                   </th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Expiry
@@ -538,7 +595,7 @@ export default function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -550,7 +607,7 @@ export default function InventoryPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((item) => {
+                  sorted.map((item) => {
                     const threshold = item.minimum_threshold ?? 0;
                     const isLow = item.quantity <= threshold;
                     return (
