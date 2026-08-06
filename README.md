@@ -10,26 +10,50 @@ Smart Stock is a lightweight, cloud-native web application that replaces manual 
 
 Small-scale restaurants operate on thin margins, often trapped between inefficient paper tracking and expensive enterprise software they cannot afford. Smart Stock evolves inventory management from a labor-intensive chore into an AI-assisted strategic asset using a Bring Your Own Device (BYOD) model — no proprietary hardware required.
 
-### Key Features
+The frontend is a client-rendered Next.js App Router application. It holds no database of its own: every screen talks to the `smartstock-back` Flask API through a single `apiFetch` wrapper (`lib/api.ts`), authenticated with a JWT issued at login.
 
-- **AI-Driven Demand Prediction** — Analyzes historical sales and menu data to predict ingredient needs with precision, reducing food waste.
-- **Smart Sourcing Module** — Automatically identifies the best prices from local vendors in real-time to optimize procurement costs.
-- **Cloud-Native & BYOD** — Fully web-based; use the devices you already own.
-- **Enterprise-Grade Analytics** — Insights designed to maximize profits for startups and small businesses.
+### Features
+
+- **Stockout & expiry alerts** — `lib/alerts.ts` evaluates items against their per-item `minimum_threshold` and upcoming expiry dates; surfaced through `components/alerts/` and the notification bell in the topbar.
+- **Demand forecasting** — `lib/forecast.ts` calls the backend's RandomForest `POST /api/forecast`, parses the response defensively, and runs a plausibility check against historical stats before anything renders.
+- **Operational assistant** — `/assistant` combines the natural-language chatbot (`lib/chat.ts` → `POST /api/chat`) with inventory forecast, historical trends, and alert-center tabs.
+- **Smart Sourcing** — supplier directory, cross-supplier price comparison, and price history (`components/sourcing/`).
+- **Waste logging & trends** — log discarded stock (`LogWasteForm`), bucketed into a monthly trend chart (`lib/waste.ts`, `WasteTrendChart`).
+- **Reorder suggestions** — `suggestReorders` in `lib/inventory.ts` ranks what to restock by severity.
+- **Role-based access control** — Owner / Admin / Manager / Employee, enforced client-side by `components/auth/RoleGuard.tsx` and by the backend on every mutating route. Account management lives at `/accounts`.
+- **Light / dark theme** — `lib/theme.ts` + `ThemeProvider`; follows the OS preference until the user picks a side.
+
+### Route status
+
+| Route         | Status                            |
+| ------------- | --------------------------------- |
+| `/login`      | Shipped                           |
+| `/dashboard`  | Shipped                           |
+| `/inventory`  | Shipped                           |
+| `/assistant`  | Shipped                           |
+| `/sourcing`   | Shipped                           |
+| `/reports`    | Shipped                           |
+| `/accounts`   | Shipped (Admin / Manager only)    |
+| `/settings`   | Shipped                           |
+| `/menu`       | Planned — placeholder page        |
+| `/analytics`  | Planned — placeholder page        |
+
+`/` redirects to `/login`.
 
 ---
 
 ## Tech Stack
 
-| Layer            | Technology                          |
-| ---------------- | ----------------------------------- |
-| Framework        | Next.js 14+ (App Router)            |
-| Language         | TypeScript                          |
-| Styling          | Tailwind CSS                        |
-| State / Data     | React Server Components + fetch     |
-| Auth             | (TBD — NextAuth.js / Clerk)         |
-| Hosting          | Vercel                              |
-| Backend API      | `smartstock-back` (separate repo)   |
+| Layer       | Technology                                                |
+| ----------- | --------------------------------------------------------- |
+| Framework   | Next.js 14 (App Router, client components)                |
+| Language    | TypeScript 5.4                                            |
+| Styling     | Tailwind CSS 3.4                                          |
+| Data access | `apiFetch` wrapper (`lib/api.ts`) over the Flask REST API |
+| Auth        | JWT issued by `smartstock-back`, held in `localStorage`   |
+| Testing     | Vitest                                                    |
+| Hosting     | Vercel                                                    |
+| Backend API | `smartstock-back` (separate repo)                         |
 
 ---
 
@@ -38,34 +62,35 @@ Small-scale restaurants operate on thin margins, often trapped between inefficie
 ### Prerequisites
 
 - Node.js 20+
-- npm / pnpm / yarn
+- npm
+- A running `smartstock-back` instance (local or the deployed Render URL)
 
 ### Installation
 
 ```bash
+git clone https://github.com/junhojeon77/smartstock-front.git
+cd smartstock-front
 npm install
 ```
 
 ### Local Development
 
 ```bash
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000). You will land on the login page — sign in with an account seeded by the backend's `seed.py`.
+
+> Without a reachable backend every page shows *"Backend unavailable — start the Flask server or check `NEXT_PUBLIC_API_URL`."* That error comes from `lib/api.ts`; it means the frontend is fine and the API is not.
 
 ### Environment Variables
 
-Copy `.env.example` to `.env.local` and fill in the values:
+| Variable              | Description                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | Base URL of the Smart Stock backend API. Defaults to `http://localhost:8000` when unset. |
 
-```bash
-cp .env.example .env.local
-```
-
-| Variable               | Description                              |
-| ---------------------- | ---------------------------------------- |
-| `NEXT_PUBLIC_API_URL`  | URL of the Smart Stock backend API       |
-| `NEXTAUTH_SECRET`      | Secret for session signing (if used)     |
+`.env.example` also carries `NEXTAUTH_URL` and `NEXTAUTH_SECRET`. These are leftovers from the original scaffold — NextAuth is not installed and neither variable is read anywhere.
 
 ### Build & Production
 
@@ -76,43 +101,82 @@ npm run start
 
 ---
 
+## Testing
+
+```bash
+npm test          # vitest run — 6 suites, 63 tests
+npm run test:watch
+```
+
+The suites cover the pure logic in `lib/`: alert evaluation, chat fallbacks, forecast parsing and plausibility, inventory status and reorder ranking, supplier price parsing, and waste bucketing. They mock `fetch` and need no backend.
+
+```bash
+npm run test:employee-roundtrip
+```
+
+`scripts/employee-roundtrip-test.js` is a separate end-to-end check that hits a **live** backend to verify employee-role permissions round-trip correctly. It is deliberately not part of `npm test`.
+
+---
+
 ## Project Structure
 
 ```text
 smartstock-front/
-├── app/                       # Next.js App Router
-│   ├── (auth)/                # Auth route group (login, signup)
-│   ├── (dashboard)/           # Authenticated app routes
-│   │   ├── dashboard/         # Overview / home
-│   │   ├── inventory/         # Stock levels, items, ingredients
-│   │   ├── menu/              # Menu items & recipes
-│   │   ├── sourcing/          # Vendor pricing & procurement
-│   │   ├── analytics/         # Demand prediction & reports
-│   │   └── settings/
-│   ├── api/                   # Route handlers (proxy / BFF)
-│   ├── layout.tsx             # Root layout
-│   ├── page.tsx               # Landing page
+├── app/                              # Next.js App Router
+│   ├── (auth)/
+│   │   ├── layout.tsx
+│   │   └── login/page.tsx
+│   ├── (dashboard)/
+│   │   ├── layout.tsx                # Sidebar shell + auth gate
+│   │   ├── accounts/                 # User & role management (Admin / Manager)
+│   │   ├── analytics/                # Placeholder
+│   │   ├── assistant/                # Chatbot, forecast, trends, alerts
+│   │   ├── dashboard/                # Overview: alerts, reorders, waste trend
+│   │   ├── inventory/                # Stock levels, thresholds, waste logging
+│   │   ├── menu/                     # Placeholder
+│   │   ├── reports/                  # Stock status & price reporting
+│   │   ├── settings/                 # Theme, restock cycle, account details
+│   │   └── sourcing/                 # Smart Sourcing
+│   ├── layout.tsx                    # Root layout + ThemeProvider
+│   ├── page.tsx                      # Redirects to /login
 │   └── globals.css
 │
-├── components/                # Reusable React components
-│   ├── ui/                    # Primitive UI (buttons, inputs, modals)
-│   ├── layout/                # Navbar, sidebar, page shells
-│   ├── inventory/             # Inventory-specific components
-│   ├── charts/                # Analytics & visualization
-│   └── forms/                 # Reusable form components
+├── components/
+│   ├── alerts/                       # AlertsCenter, AlertsPanel, NotificationBell, AlertNotification
+│   ├── assistant/                    # InventoryForecastTab, HistoricalTrendsTab
+│   ├── auth/RoleGuard.tsx            # Client-side role gate
+│   ├── charts/WasteTrendChart.tsx
+│   ├── chat/Chatbot.tsx
+│   ├── forecast/ForecastWidget.tsx
+│   ├── inventory/ReorderSuggestions.tsx
+│   ├── layout/                       # Sidebar, Topbar
+│   ├── sourcing/                     # SmartSourcing, SupplierDirectory, PriceComparison
+│   ├── theme/                        # ThemeProvider, ThemeToggle
+│   ├── ui/                           # Button, Card, Input
+│   └── waste/LogWasteForm.tsx
 │
-├── lib/                       # Shared utilities
-│   ├── api.ts                 # API client / fetch wrappers
-│   ├── auth.ts                # Auth helpers
-│   └── utils.ts               # Misc helpers (cn, formatters)
+├── lib/
+│   ├── alerts.ts                     # Stockout / expiry evaluation, threshold config
+│   ├── api.ts                        # apiFetch — auth header, error normalization
+│   ├── auth.ts                       # Token & user storage, role normalization
+│   ├── chat.ts                       # POST /api/chat
+│   ├── forecast.ts                   # POST /api/forecast + response plausibility
+│   ├── inventory.ts                  # Item status, reorder suggestions
+│   ├── suppliers.ts                  # Supplier list & price parsing
+│   ├── theme.ts                      # Theme resolution & persistence
+│   ├── utils.ts
+│   └── waste.ts                      # Waste log fetch/post, monthly bucketing
 │
-├── hooks/                     # Custom React hooks
-├── types/                     # TypeScript type definitions
-├── public/                    # Static assets (images, icons)
+├── tests/                            # Vitest suites for lib/
+├── scripts/employee-roundtrip-test.js
+├── types/index.ts                    # Shared API types
+├── images/                           # Screenshots
+├── public/
 │
 ├── .env.example
 ├── next.config.mjs
 ├── tailwind.config.ts
+├── vitest.config.ts
 ├── tsconfig.json
 └── package.json
 ```
@@ -132,18 +196,21 @@ vercel --prod
 
 ## Scripts
 
-| Command         | Description                          |
-| --------------- | ------------------------------------ |
-| `npm run dev`   | Start local dev server               |
-| `npm run build` | Build for production                 |
-| `npm run start` | Run the production build             |
-| `npm run lint`  | Run ESLint                           |
+| Command                          | Description                                        |
+| -------------------------------- | -------------------------------------------------- |
+| `npm run dev`                    | Start local dev server                             |
+| `npm run build`                  | Build for production                               |
+| `npm run start`                  | Run the production build                           |
+| `npm run lint`                   | Run ESLint                                         |
+| `npm test`                       | Run the Vitest suite once                          |
+| `npm run test:watch`             | Run Vitest in watch mode                           |
+| `npm run test:employee-roundtrip`| Live-backend employee permission round-trip check  |
 
 ---
 
 ## Related Repositories
 
-- **smartstock-back** — Backend API, AI models, and data pipeline.
+- **[smartstock-back](https://github.com/NikanEidi/smartstock-back)** — Flask REST API, MongoDB Atlas, JWT auth + RBAC, chatbot and demand-forecast models. Deployed on Render; `.env.example` points at that deployment by default.
 
 ---
 
