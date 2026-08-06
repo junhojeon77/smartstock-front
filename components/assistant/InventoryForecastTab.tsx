@@ -381,7 +381,11 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
       </div>
 
       {/* AI procurement recommendations — live, explainable, overridable */}
-      <ReorderSuggestions items={items} loading={loading} />
+      {/* Same effective minimums the table shows, so both agree. */}
+      <ReorderSuggestions
+        items={rows.map((r) => ({ ...r.item, minimum_threshold: r.min }))}
+        loading={loading}
+      />
     </div>
   );
 }
