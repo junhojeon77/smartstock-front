@@ -125,7 +125,7 @@ export default function DashboardPage() {
             {kpis.map((k) => (
               <div
                 key={k.label}
-                className={`rounded-xl border ${k.ring} bg-gradient-to-br ${k.bg} backdrop-blur-sm p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20`}
+                className={`rounded-xl border ${k.ring} bg-gradient-to-br ${k.bg} backdrop-blur-sm p-5 transition-all duration-200`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
