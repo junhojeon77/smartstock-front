@@ -77,7 +77,7 @@ export default function AIAssistantPage() {
         )}
 
         {tab === "Operations Assistant" && (
-          <div className="max-w-3xl">
+          <div>
             <Chatbot />
           </div>
         )}

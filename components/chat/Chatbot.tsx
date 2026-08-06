@@ -66,11 +66,15 @@ export function Chatbot() {
     void send(input);
   }
 
+  // ponytail: height = viewport minus the chrome above it (mobile nav +
+  // topbar + tab bar + page padding). Magic numbers because the layout chain
+  // is min-h-screen, so there's no definite height to flex against; if the
+  // chrome changes, make the layout h-dvh and swap this for flex-1 min-h-0.
   return (
-    <Card className="flex h-[32rem] flex-col">
+    <Card className="flex h-[calc(100dvh-15.5rem)] min-h-[24rem] flex-col lg:h-[calc(100dvh-12rem)]">
       <div className="border-b border-slate-800/70 px-5 py-3">
         <h2 className="text-lg font-semibold text-slate-100">AI Assistant</h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-sm text-slate-500">
           Answers from your live inventory, suppliers, and sales history.
         </p>
       </div>
@@ -82,7 +86,7 @@ export function Chatbot() {
             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
+              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-base ${
                 m.role === "user"
                   ? "bg-cyan-500 text-ink"
                   : "border border-slate-800/70 bg-slate-900/60 text-slate-200"
@@ -101,7 +105,7 @@ export function Chatbot() {
             key={s}
             onClick={() => void send(s)}
             disabled={sending}
-            className="rounded-full border border-slate-700/70 bg-slate-900/40 px-3 py-1 text-xs text-slate-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-400 disabled:opacity-50"
+            className="rounded-full border border-slate-700/70 bg-slate-900/40 px-3.5 py-1.5 text-sm text-slate-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-400 disabled:opacity-50"
           >
             {s}
           </button>
@@ -116,7 +120,7 @@ export function Chatbot() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your inventory…"
-          className="flex-1 rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+          className="flex-1 rounded-lg border border-slate-700/60 bg-slate-900/60 px-3.5 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
         />  
         <Button type="submit" disabled={sending || input.trim() === ""}>
           Send
