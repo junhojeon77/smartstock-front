@@ -62,7 +62,9 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
   const [restockDays, setRestockDays] = useState<number>(DEFAULT_RESTOCK_DAYS);
-  const [autoSync, setAutoSync] = useState(true);
+  // ponytail: off by default — auto-sync overwrites hand-set thresholds on
+  // every forecast load. Opt in with the toggle if you want it.
+  const [autoSync, setAutoSync] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const [statusSearch, setStatusSearch] = useState("");
   const syncing = useRef(false);
@@ -70,7 +72,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
   useEffect(() => {
     const days = Number(localStorage.getItem(RESTOCK_KEY));
     if (RESTOCK_CYCLES.some((c) => c.days === days)) setRestockDays(days);
-    if (localStorage.getItem(AUTOSYNC_KEY) === "off") setAutoSync(false);
+    if (localStorage.getItem(AUTOSYNC_KEY) === "on") setAutoSync(true);
   }, []);
 
   const setCycle = (days: number) => {

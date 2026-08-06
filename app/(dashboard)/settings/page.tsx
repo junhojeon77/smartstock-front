@@ -90,13 +90,13 @@ export default function SettingsPage() {
   const { theme } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [restockDays, setRestockDays] = useState<number>(DEFAULT_RESTOCK_DAYS);
-  const [autoSync, setAutoSync] = useState(true);
+  const [autoSync, setAutoSync] = useState(false);
 
   useEffect(() => {
     setUser(getUser());
     const stored = Number(localStorage.getItem(RESTOCK_KEY));
     if (RESTOCK_CYCLES.some((c) => c.days === stored)) setRestockDays(stored);
-    if (localStorage.getItem(AUTOSYNC_KEY) === "off") setAutoSync(false);
+    if (localStorage.getItem(AUTOSYNC_KEY) === "on") setAutoSync(true);
   }, []);
 
   function changeRestock(days: number) {
