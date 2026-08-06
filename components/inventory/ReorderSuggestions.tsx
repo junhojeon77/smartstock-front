@@ -36,17 +36,27 @@ export function ReorderSuggestions({ items, loading }: Props) {
   const [dismissed, setDismissed] = useState<number[]>([]);
   const [overrides, setOverrides] = useState<Record<number, number>>({});
   const [itemFilter, setItemFilter] = useState<"all" | number>("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setDismissed(readJson<number[]>(DISMISSED_KEY, []));
     setOverrides(readJson<Record<number, number>>(OVERRIDES_KEY, {}));
   }, []);
 
+  // Local, case-insensitive match on name + category. All data is already on
+  // the client, so this never hits the API.
+  const query = search.trim().toLowerCase();
+  const matchesQuery = (name: string, category: string | undefined) =>
+    !query ||
+    name.toLowerCase().includes(query) ||
+    (category ?? "").toLowerCase().includes(query);
+
   const all = suggestReorders(items);
   const visible = all.filter(
     (r) =>
       !dismissed.includes(r.item.item_id) &&
-      (itemFilter === "all" || r.item.item_id === itemFilter),
+      (itemFilter === "all" || r.item.item_id === itemFilter) &&
+      matchesQuery(r.item.item_name, r.item.category),
   );
   const hiddenCount =
     all.filter((r) => dismissed.includes(r.item.item_id)).length;
@@ -76,10 +86,10 @@ export function ReorderSuggestions({ items, loading }: Props) {
 
   return (
     <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
           <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-          AI Procurement Recommendations
+          Reorder Recommendations
         </h2>
         <select
           value={itemFilter}
@@ -98,17 +108,54 @@ export function ReorderSuggestions({ items, loading }: Props) {
         </select>
       </div>
 
+      {/* Local search over name + category */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[10rem] flex-1">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by item or category…"
+            aria-label="Search recommendations by item name or category"
+            className="w-full rounded-md border border-slate-700/60 bg-slate-800/60 py-1.5 pl-8 pr-8 text-xs text-slate-200 placeholder:text-slate-600 focus:border-violet-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/20"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear recommendation search"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 transition-colors hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+          {visible.length} of {all.length}
+        </span>
+      </div>
+
       {visible.length === 0 ? (
         <p className="py-6 text-center text-sm text-slate-600">
           {loading
             ? "Loading…"
-            : filteredItem
-              ? all.some((r) => r.item.item_id === itemFilter)
-                ? `Suggestion for ${filteredItem.item_name} was dismissed.`
-                : `No action needed — ${filteredItem.item_name} looks healthy.`
-              : hiddenCount > 0
-                ? "All suggestions dismissed."
-                : "No reorders needed — stock looks healthy."}
+            : query
+              ? "No recommendations match your search."
+              : filteredItem
+                ? all.some((r) => r.item.item_id === itemFilter)
+                  ? `Suggestion for ${filteredItem.item_name} was dismissed.`
+                  : `No action needed — ${filteredItem.item_name} looks healthy.`
+                : hiddenCount > 0
+                  ? "All suggestions dismissed."
+                  : "No reorders needed — stock looks healthy."}
         </p>
       ) : (
         <ul className="flex max-h-96 flex-col divide-y divide-slate-800/60 overflow-y-auto">

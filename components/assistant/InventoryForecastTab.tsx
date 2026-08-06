@@ -48,7 +48,7 @@ function expiryMs(item: InventoryItem): number {
 }
 
 /**
- * Inventory & Forecasting AI tab. The demand forecast (backend /api/forecast)
+ * Demand Forecasting tab. The demand forecast (backend /api/forecast)
  * doubles as each item's minimum quantity required: the inventory table below
  * derives status from ceil(predicted_demand) when the forecast clears the
  * user's confidence floor, and "Apply forecast as minimums" persists those
@@ -64,6 +64,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
   const [restockDays, setRestockDays] = useState<number>(DEFAULT_RESTOCK_DAYS);
   const [autoSync, setAutoSync] = useState(true);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
+  const [statusSearch, setStatusSearch] = useState("");
   const syncing = useRef(false);
 
   useEffect(() => {
@@ -134,6 +135,18 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
     (r) => r.fromForecast && r.min !== r.storedMin,
   );
 
+  // Display-only filter for the status table. `rows` — and therefore
+  // pendingApply and the auto-sync effect below — is deliberately left
+  // unfiltered so searching never changes which minimums get synced.
+  const statusQuery = statusSearch.trim().toLowerCase();
+  const visibleRows = statusQuery
+    ? rows.filter(
+        (r) =>
+          r.item.item_name.toLowerCase().includes(statusQuery) ||
+          (r.item.category ?? "").toLowerCase().includes(statusQuery),
+      )
+    : rows;
+
   // Auto-sync: whenever forecasts (or the settings that scale them) produce a
   // minimum that differs from the stored threshold, persist it. Idempotent —
   // after the refresh the diff is empty, so the effect settles.
@@ -192,6 +205,7 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
         items={items}
         onForecasts={setForecasts}
         scale={restockDays / 7}
+        periodDays={restockDays}
         settings={
           <label className="flex items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -261,6 +275,41 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
           <p className="mb-3 text-xs text-emerald-400">{applyMsg}</p>
         )}
 
+        {/* Local search over name + category */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[10rem] flex-1">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={statusSearch}
+              onChange={(e) => setStatusSearch(e.target.value)}
+              placeholder="Search by item or category…"
+              aria-label="Search inventory status by item name or category"
+              className="w-full rounded-md border border-slate-700/60 bg-slate-800/60 py-1.5 pl-8 pr-8 text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
+            />
+            {statusSearch && (
+              <button
+                type="button"
+                onClick={() => setStatusSearch("")}
+                aria-label="Clear inventory status search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 transition-colors hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+            {visibleRows.length} of {rows.length}
+          </span>
+        </div>
+
         <div className="max-h-60 overflow-y-auto overflow-x-auto rounded-lg border border-slate-800/70">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm">
@@ -281,14 +330,16 @@ export function InventoryForecastTab({ items, loading, error, onRefresh }: Props
                     Loading…
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-sm text-slate-600">
-                    No inventory items found.
+                    {statusQuery
+                      ? `No items match "${statusSearch.trim()}".`
+                      : "No inventory items found."}
                   </td>
                 </tr>
               ) : (
-                rows.map(({ item, min, fromForecast, storedMin, status }) => (
+                visibleRows.map(({ item, min, fromForecast, storedMin, status }) => (
                   <tr
                     key={item.item_id}
                     className="border-b border-slate-800/40 last:border-0"

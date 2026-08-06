@@ -10,9 +10,9 @@ import { apiFetch } from "@/lib/api";
 import type { InventoryItem } from "@/types/index";
 
 const TABS = [
-  "Inventory & Forecasting AI",
-  "Operations NLP Assistant",
-  "Historical Trends",
+  "Demand Forecasting",
+  "Operations Assistant",
+  "Waste Analytics",
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -36,7 +36,7 @@ export default function AIAssistantPage() {
 
   return (
     <>
-      <Topbar title="Analytics & Forecasting AI" />
+      <Topbar title="Insights & Assistant" />
 
       <div className="flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         {/* Tab bar */}
@@ -60,7 +60,7 @@ export default function AIAssistantPage() {
         </div>
 
         {/* Tab content */}
-        {tab === "Inventory & Forecasting AI" && (
+        {tab === "Demand Forecasting" && (
           <div className="grid grid-cols-12 gap-4 lg:gap-6">
             <div className="col-span-12 lg:col-span-8">
               <InventoryForecastTab
@@ -76,13 +76,13 @@ export default function AIAssistantPage() {
           </div>
         )}
 
-        {tab === "Operations NLP Assistant" && (
+        {tab === "Operations Assistant" && (
           <div className="max-w-3xl">
             <Chatbot />
           </div>
         )}
 
-        {tab === "Historical Trends" && <HistoricalTrendsTab />}
+        {tab === "Waste Analytics" && <HistoricalTrendsTab />}
       </div>
     </>
   );

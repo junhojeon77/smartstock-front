@@ -22,34 +22,67 @@ const label = "text-xs font-medium text-slate-500 uppercase tracking-wide";
 const selectCls =
   "rounded-xl border border-slate-700/60 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150";
 
-/** Reset button that reports "Done" inline and disables when there's nothing to clear. */
+/**
+ * Count real entries behind a stored key. The writers persist `[]` / `{}`
+ * rather than removing the key, so a bare existence check would leave these
+ * buttons enabled with nothing to undo. Malformed JSON counts as empty.
+ */
+function countStored(storageKey: string): number {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return 0;
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.length;
+    if (parsed !== null && typeof parsed === "object") {
+      return Object.keys(parsed).length;
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Reset button that shows its count, explains itself when empty, and confirms briefly. */
 function ResetButton({
   storageKey,
-  children,
+  label,
+  emptyHint,
 }: {
   storageKey: string;
-  children: React.ReactNode;
+  label: string;
+  emptyHint: string;
 }) {
-  const [hasValue, setHasValue] = useState(false);
+  const [count, setCount] = useState(0);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    setHasValue(localStorage.getItem(storageKey) !== null);
+    setCount(countStored(storageKey));
   }, [storageKey]);
 
+  // Clear the transient confirmation so the button doesn't read "Done" until
+  // the page is remounted.
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => setDone(false), 2000);
+    return () => clearTimeout(timer);
+  }, [done]);
+
   return (
-    <button
-      type="button"
-      disabled={!hasValue}
-      onClick={() => {
-        localStorage.removeItem(storageKey);
-        setHasValue(false);
-        setDone(true);
-      }}
-      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/60 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      {done ? "Done ✓" : children}
-    </button>
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        disabled={count === 0}
+        onClick={() => {
+          localStorage.removeItem(storageKey);
+          setCount(0);
+          setDone(true);
+        }}
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/60 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {done ? "Done ✓" : count > 0 ? `${label} (${count})` : label}
+      </button>
+      {count === 0 && <p className="text-xs text-slate-600">{emptyHint}</p>}
+    </div>
   );
 }
 
@@ -174,13 +207,17 @@ export default function SettingsPage() {
           <h2 className="mb-4 text-sm font-semibold text-slate-200">
             Reorder Suggestions
           </h2>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <ResetButton storageKey={DISMISSED_KEY}>
-              Restore dismissed suggestions
-            </ResetButton>
-            <ResetButton storageKey={OVERRIDES_KEY}>
-              Clear quantity overrides
-            </ResetButton>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+            <ResetButton
+              storageKey={DISMISSED_KEY}
+              label="Restore dismissed suggestions"
+              emptyHint="No dismissed recommendations to restore."
+            />
+            <ResetButton
+              storageKey={OVERRIDES_KEY}
+              label="Clear quantity overrides"
+              emptyHint="No quantity overrides have been saved."
+            />
           </div>
           <p className="mt-3 text-xs text-slate-500">
             Brings back suggestions you dismissed and removes edited order

@@ -43,7 +43,7 @@ const nav: NavItem[] = [
     ),
   },
   {
-    label: "AI Assistant",
+    label: "Insights & Assistant",
     href: "/assistant",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
@@ -210,7 +210,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             Sign out
           </button>
 
-          <p className="mt-4 text-xs text-slate-600">Smart Stock © 2025</p>
+          <p className="mt-4 text-xs text-slate-600">Smart Stock © 2026</p>
         </div>
       )}
     </aside>

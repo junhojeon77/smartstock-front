@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [waste, setWaste] = useState<WasteEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invSearch, setInvSearch] = useState("");
 
   useEffect(() => {
     apiFetch<InventoryItem[]>("/api/inventory")
@@ -53,6 +54,17 @@ export default function DashboardPage() {
   const expiredCount   = statuses.filter((s) => s === "Expired").length;
   const healthyCount   = statuses.filter((s) => s === "Healthy").length;
   const healthPct = totalItems === 0 ? 100 : Math.round((healthyCount / totalItems) * 100);
+
+  // Local search for the status table only — the KPI cards above always
+  // reflect the full inventory. All data is already client-side.
+  const invQuery = invSearch.trim().toLowerCase();
+  const visibleItems = invQuery
+    ? items.filter(
+        (i) =>
+          i.item_name.toLowerCase().includes(invQuery) ||
+          (i.category ?? "").toLowerCase().includes(invQuery),
+      )
+    : items;
 
   const kpis = [
     {
@@ -137,15 +149,51 @@ export default function DashboardPage() {
 
           {/* Bottom two-column section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* AI Procurement Recommendations — live, explainable, overridable */}
+            {/* Reorder Recommendations — live, explainable, overridable */}
             <ReorderSuggestions items={items} loading={loading} />
 
             {/* Inventory Status — LIVE */}
             <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 backdrop-blur-sm p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
                 Inventory Status
               </h2>
+
+              {/* Local search over name + category */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[9rem] flex-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M21 21l-4.3-4.3" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    value={invSearch}
+                    onChange={(e) => setInvSearch(e.target.value)}
+                    placeholder="Search by item or category…"
+                    aria-label="Search inventory status by item name or category"
+                    className="w-full rounded-md border border-slate-700/60 bg-slate-800/60 py-1.5 pl-8 pr-8 text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
+                  />
+                  {invSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setInvSearch("")}
+                      aria-label="Clear inventory search"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 transition-colors hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+                  {visibleItems.length} of {items.length}
+                </span>
+              </div>
+
               <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-900">
@@ -165,14 +213,16 @@ export default function DashboardPage() {
                         </div>
                       </td>
                     </tr>
-                  ) : items.length === 0 ? (
+                  ) : visibleItems.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="py-8 text-center text-sm text-slate-600">
-                        No inventory items found.
+                        {invQuery
+                          ? `No items match "${invSearch.trim()}".`
+                          : "No inventory items found."}
                       </td>
                     </tr>
                   ) : (
-                    items.map((item) => {
+                    visibleItems.map((item) => {
                       const status = getItemStatus(item);
                       return (
                         <tr key={item.item_id} className="border-b border-slate-800/40 last:border-0">

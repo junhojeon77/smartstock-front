@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { saveAuth, normalizeRole } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
@@ -129,17 +128,9 @@ export default function LoginPage() {
 
           {/* Password */}
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-xs text-cyan-500 hover:text-cyan-400 transition-colors"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            <label htmlFor="password" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Password
+            </label>
             <div className="relative">
               <input
                 id="password"
@@ -173,16 +164,6 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
-
-          {/* Remember me */}
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              name="remember"
-              className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 focus:ring-offset-slate-900"
-            />
-            <span className="text-sm text-slate-400">Remember me</span>
-          </label>
 
           {/* Submit */}
           <button

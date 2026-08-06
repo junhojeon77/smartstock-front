@@ -45,6 +45,13 @@ export function LogWasteForm({ items, presetItem, onLogged }: Props) {
       setError("Quantity must be greater than 0.");
       return;
     }
+    const available = Number(item.quantity) || 0;
+    if (qty > available) {
+      setError(
+        `Cannot log ${qty} — only ${available} of ${item.item_name} in stock.`,
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       await logWaste(item, qty, reason);
@@ -122,17 +129,26 @@ export function LogWasteForm({ items, presetItem, onLogged }: Props) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Quantity Wasted
-          </label>
+          <div className="flex items-baseline justify-between gap-2">
+            <label
+              htmlFor="waste-quantity"
+              className="text-xs font-medium text-slate-500 uppercase tracking-wide"
+            >
+              Quantity Wasted
+            </label>
+            <span className="text-xs tabular-nums text-slate-400">
+              Available: {item ? item.quantity : "—"}
+            </span>
+          </div>
           <input
+            id="waste-quantity"
             type="number"
             step="0.01"
             min="0.01"
             required
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            placeholder={item ? `In stock: ${item.quantity}` : "e.g. 5"}
+            placeholder="e.g. 5"
             className={inputCls}
           />
         </div>

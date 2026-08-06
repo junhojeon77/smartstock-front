@@ -76,6 +76,41 @@ const EMPTY_FORM: FormValues = {
 const inputCls =
   "w-full rounded-xl border border-slate-700/60 bg-slate-800/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all duration-150 disabled:opacity-50";
 
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+//
+// Flask's jsonify serialises datetimes as RFC 1123 ("Mon, 25 May 2026 00:00:00
+// GMT"), not ISO 8601, so the string cannot be sliced — parse it. Dates are
+// stored as UTC midnight, so we read the UTC parts to avoid shifting a day in
+// timezones behind GMT.
+
+/** Parse a backend date string; null when absent or unparseable. */
+function parseExpiry(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Human-readable expiry for the table, e.g. "May 25, 2026". */
+function formatExpiry(value: string | null | undefined): string {
+  const date = parseExpiry(value);
+  if (!date) return "—";
+  return date.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** YYYY-MM-DD for <input type="date">; empty when absent or unparseable. */
+function toDateInputValue(value: string | null | undefined): string {
+  const date = parseExpiry(value);
+  if (!date) return "";
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}-${day}`;
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
@@ -172,7 +207,7 @@ export default function InventoryPage() {
       category: item.category,
       quantity: String(item.quantity),
       minimum_threshold: item.minimum_threshold != null ? String(item.minimum_threshold) : "0",
-      expiry_date: item.expiry_date ? item.expiry_date.slice(0, 10) : "",
+      expiry_date: toDateInputValue(item.expiry_date),
     });
     setFormError(null);
     setEditingId(item.item_id);
@@ -276,13 +311,6 @@ export default function InventoryPage() {
     } finally {
       setSavingThreshold(false);
     }
-  }
-
-  // ── Expiry display ─────────────────────────────────────────────────────────
-
-  function formatExpiry(val: string | null | undefined): string {
-    if (!val) return "—";
-    return val.slice(0, 10);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
